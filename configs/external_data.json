@@ -1,0 +1,16 @@
+{
+  "openslr35_shard0": {
+    "name": "Large Javanese ASR training data set (SLR35), shard 0",
+    "source_page": "https://openslr.org/35/",
+    "archive_url": "https://openslr.trmal.net/resources/35/asr_javanese_0.zip",
+    "archive_sha256": "a871c8b71ff8fa9d95955447ca0c388e8c6f925aecfce92e1880bda2da113bcb",
+    "transcripts_url": "https://openslr.trmal.net/resources/35/utt_spk_text.tsv",
+    "transcripts_sha256": "412efacff888be979daa5fc4ea3d816d3daa0af381c005ea97fcf31ac6d8b39a",
+    "checksums_url": "https://openslr.trmal.net/resources/35/asr_javanese.sha256",
+    "checksums_sha256": "59e1cc20ff37340817762155f958d96753950fe8bfd08fc38bc2ae7069f898e3",
+    "license_url": "https://openslr.trmal.net/resources/35/LICENSE",
+    "license_sha256": "9348ddfd44da5a127c59141981954746a860ec8e03e0412cf3af7134af0f97e2",
+    "license": "CC-BY-SA-4.0",
+    "competition_note": "External data: publish a permitted redistribution to MDC at the conclusion of the competition and retain attribution/provenance evidence."
+  }
+}

@@ -1,0 +1,5 @@
+# Local CPU/Apple-Silicon baseline only. The official Linux/CUDA runtime is pinned under runtime/.
+torch==2.11.0
+qwen-asr==0.0.6
+transformers==4.57.6
+soundfile==0.14.0

@@ -1,0 +1,70 @@
+{
+  "api_base": "https://mozilladatacollective.com/api",
+  "verified_at": "2026-09-05",
+  "datasets": {
+    "dev": {
+      "id": "cmsxiwqdo000fny07e5fx0yi5",
+      "name": "Lost In Transcription Competition - Development Data (Javanese-Indonesian)",
+      "priority": 1,
+      "role": "in-domain development, fold tuning, and final training",
+      "license": "CC-BY-SA-4.0",
+      "size_bytes": 72772516,
+      "sha256": "effcb1b34991e3ba7a0f8abc2d24324d42a8e0304a6da366dffeb683da773cad"
+    },
+    "jember": {
+      "id": "cmlgm5a94008kny07nz2intus",
+      "name": "Jember Javanese Spontaneous Speech Corpus",
+      "priority": 1,
+      "role": "spontaneous Javanese/code-switch acoustic adaptation",
+      "license": "CC-BY-NC-SA-4.0",
+      "size_bytes": 284847670,
+      "sha256": "87ecd658248746239360ea800967458c9fcaa785d225913d49446ef3d2651fc1"
+    },
+    "cv_jv_spontaneous": {
+      "id": "cmqi294n3004mmf07wvybp3fn",
+      "name": "Common Voice Spontaneous Speech 4.0 - Javanese",
+      "priority": 1,
+      "role": "additional spontaneous Javanese",
+      "license": "CC0-1.0",
+      "size_bytes": 29538464,
+      "sha256": "37916bd71b4572bec7c46c0491f680c7c4a4f076a54eb1759782d5b90b1de9fc"
+    },
+    "cv_id_scripted": {
+      "id": "cmqinqwef00xonr07z4vbfovw",
+      "name": "Common Voice Scripted Speech 26.0 - Indonesian",
+      "priority": 1,
+      "role": "Indonesian acoustic coverage; downsample during mixed-domain tuning",
+      "license": "CC0-1.0",
+      "size_bytes": 1528281328,
+      "sha256": "4b57ad8a41b1fe3eb597fbd72ff581833a2365c10d0e28fb351e365bc05d7d66"
+    },
+    "panjebar_text": {
+      "id": "cmk719jvs02z1nt07tjswt52s",
+      "name": "Corpus of Panjebar Semangat Javanese-Language Magazine",
+      "priority": 2,
+      "role": "Javanese lexicon and language-model text",
+      "license": "CC-BY-SA-4.0",
+      "size_bytes": 4514214,
+      "sha256": "0d51720864c02b425cd4a6471e7b5c8e180649d87b33aa7c90d287f4a6bb025d"
+    },
+    "podcast_hari": {
+      "id": "cmhlvswz200fio007c7szypw8",
+      "name": "Podcast Hari Minggoean (Indonesia)",
+      "priority": 2,
+      "role": "conversational Indonesian acoustic/domain coverage",
+      "license": "CC-BY-SA-4.0",
+      "size_bytes": 355388539,
+      "sha256": "81d8d9b49450f3cf1b22c3951a3852bba7122eb63e7ec4fb0164d0333318469d"
+    },
+    "podcast_homostoria": {
+      "id": "cmiepnyu1001jo207hzslvb5m",
+      "name": "Podcast Homostoria (Indonesia)",
+      "priority": 2,
+      "role": "conversational Indonesian acoustic/domain coverage",
+      "license": "CC-BY-SA-4.0",
+      "size_bytes": 317688107,
+      "sha256": "16991a4f02d9f237fafd355a2bcb03de9661a41b2d5e18f7d532bddcb02c908f"
+    }
+  }
+}
+
