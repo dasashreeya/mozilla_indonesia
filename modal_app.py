@@ -206,6 +206,8 @@ def stage_openslr_continuation(
             str(download_dir),
             "--shards",
             shards,
+            "--workers",
+            "4",
         ]
     )
     command = [

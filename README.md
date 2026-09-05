@@ -4,7 +4,11 @@ Competition workspace for a reproducible, rules-compliant attempt at the Mozilla
 
 The score target is **WER <= 0.20**. That would beat the 0.2196 public leader visible on 2026-09-05, but it cannot guarantee first place: the final ranking uses the private leaderboard and competitors can improve. The safer engineering gate used here is **mean held-out WER <= 0.185** across conversation/speaker splits before spending a full submission.
 
-Current status: the official schemas, research manifests, pinned Qwen (4.38 GiB) and Whisper (2.88 GiB) weights, and integrity-checked submission ZIPs for both models are present locally. A checksum-verified, 3,000-clip speaker-disjoint OpenSLR 35 Javanese subset is also prepared. Both models ran end-to-end locally; the best result was Qwen forced to Indonesian at 0.6438 on a **10-clip, out-of-domain smoke slice**, which is not competitive or representative. **No in-domain model WER has been measured yet** because MDC returned HTTP 403 for the development and Jember archives until their terms/access requests are completed in the account web UI. Do not mistake the 0.20 target for an achieved score.
+**Current status (2026-09-05): best known full-test score is 0.47555, against a public leader at 0.2196.** That submission contained base Qwen3-ASR-1.7B with no fine-tuned weights. Two submissions are spent. **No in-domain WER has ever been measured** because MDC returns HTTP 403 for the development and Jember archives until their terms/access requests are completed in the account web UI; clearing that is the critical path.
+
+The 5-clip smoke test cannot rank systems — Whisper's 0.1913 and Qwen's 0.2000 are 22 versus 23 errors out of 115 reference words. Do not select a model on it.
+
+Start at **[docs/kb/00-README.md](docs/kb/00-README.md)**: the knowledge base holds the full run history, the locally measured findings (a 6.4-point casing/diacritic lever; blanket lowercasing costs 11.8 points), the proven winning recipe from a comparable DrivenData ASR competition, the verified official spec, and the prioritised plan to the deadline.
 
 ## Quick start
 
@@ -90,8 +94,8 @@ MDC API keys authenticate requests but do not accept dataset-specific legal term
 
 The recommended sequence is evidence-driven:
 
-1. Measure zero-shot Qwen3-ASR-1.7B and Whisper large-v3 on the same conversation-held-out folds. Qwen officially supports Indonesian but not Javanese; Whisper declares both `id` and `jw`, so neither should be assumed best without local results.
-2. Fine-tune the strongest checkpoint on Jember spontaneous speech, Common Voice Javanese/Indonesian, then the competition development training folds. Keep each conversation and speaker wholly within one fold.
+1. Measure zero-shot Qwen3-ASR-1.7B and Whisper large-v3 on the same conversation-held-out folds. Note that the base-model question is largely settled by external evidence: all three Word Track winners of DrivenData's comparable "On Top of Pasketti" ASR challenge used a fine-tuned Qwen3-ASR-1.7B, and their code is public. See [docs/kb/research/winning-solutions.md](docs/kb/research/winning-solutions.md).
+2. Fine-tune on Jember spontaneous speech — the corpus that both the dev and test sets are drawn from — then Common Voice Javanese/Indonesian and the competition development training folds. Keep each conversation and speaker wholly within one fold. Use the winners' LoRA configuration as the starting point and average checkpoints.
 3. Tune decoding separately for `ind`, `jav`, and `javind`, using the manifest language label only. Use normalized WER—not loss—as the selection criterion.
 4. Add a Javanese–Indonesian text LM or hypothesis rescoring only if it improves both conversation folds. The official runtime now includes `kenlm` and `pyctcdecode`.
 5. Use a model router or ensemble only when its full-fold WER beats the best single model by at least 0.005. Retrain on all permitted labeled audio for the final candidate, run the official offline Docker smoke test, then submit.

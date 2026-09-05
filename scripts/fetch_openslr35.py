@@ -4,6 +4,7 @@
 import json
 import sys
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, Optional, Sequence, Tuple
 
@@ -63,6 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="0",
         help="Comma-separated hexadecimal IDs/ranges (for example 0,2-4 or 1-f), or all",
     )
+    parser.add_argument("--workers", type=int, default=1, help="Concurrent archive downloads (1-8)")
     return parser
 
 
@@ -71,6 +73,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         config = json.loads(CONFIG.read_text(encoding="utf-8"))["openslr35_shard0"]
         shards = parse_shards(args.shards)
+        if not 1 <= args.workers <= 8:
+            raise ValueError("--workers must be between 1 and 8")
         supporting_files = (
             ("utt_spk_text.tsv", config["transcripts_url"], config["transcripts_sha256"]),
             ("asr_javanese.sha256", config["checksums_url"], config["checksums_sha256"]),
@@ -88,19 +92,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print("Downloaded and verified: {}".format(destination))
         checksums = load_checksums(args.output_dir / "asr_javanese.sha256")
         base_url = config["archive_url"].rsplit("/", 1)[0]
-        for shard in shards:
+
+        def fetch_shard(shard: str) -> str:
             filename = "asr_javanese_{}.zip".format(shard)
             expected_hash = checksums.get(filename)
             if not expected_hash:
                 raise MDCError("Pinned checksum manifest has no entry for {}".format(filename))
             destination = args.output_dir / filename
             if destination.exists() and sha256_file(destination) == expected_hash:
-                print("Using verified cached file: {}".format(destination))
-                continue
+                return "Using verified cached file: {}".format(destination)
             download_file("{}/{}".format(base_url, filename), destination)
             if sha256_file(destination) != expected_hash:
                 raise MDCError("SHA-256 mismatch for {}".format(destination))
-            print("Downloaded and verified: {}".format(destination))
+            return "Downloaded and verified: {}".format(destination)
+
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            for message in executor.map(fetch_shard, shards):
+                print(message)
     except (KeyError, OSError, ValueError, json.JSONDecodeError, MDCError) as exc:
         print("error: {}".format(exc), file=sys.stderr)
         return 2
