@@ -12,6 +12,13 @@ from typing import Iterable, Optional, Sequence, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 STORE_SUFFIXES = {".safetensors", ".bin", ".pt", ".pth", ".onnx", ".mp3", ".zip", ".gz"}
+TRAINING_ONLY_FILENAMES = {
+    "optimizer.pt",
+    "rng_state.pth",
+    "scheduler.pt",
+    "trainer_state.json",
+    "training_args.bin",
+}
 
 
 def files_below(root: Path) -> Iterable[Path]:
@@ -19,6 +26,13 @@ def files_below(root: Path) -> Iterable[Path]:
         if path.is_file():
             if path.is_symlink():
                 raise ValueError("Refusing to package symlink: {}".format(path))
+            yield path
+
+
+def inference_model_files(root: Path) -> Iterable[Path]:
+    """Yield model assets while omitting Trainer state that inference cannot use."""
+    for path in files_below(root):
+        if path.name not in TRAINING_ONLY_FILENAMES:
             yield path
 
 
@@ -47,7 +61,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     entries: Sequence[Tuple[Path, str]] = list(
         [(path, path.relative_to(args.source).as_posix()) for path in files_below(args.source)]
-        + [(path, "model/" + path.relative_to(args.model_dir).as_posix()) for path in files_below(args.model_dir)]
+        + [
+            (path, "model/" + path.relative_to(args.model_dir).as_posix())
+            for path in inference_model_files(args.model_dir)
+        ]
     )
     with zipfile.ZipFile(args.output, "w", allowZip64=True) as archive:
         for path, archive_name in entries:
@@ -78,4 +95,3 @@ if __name__ == "__main__":
     except (OSError, ValueError, zipfile.BadZipFile) as exc:
         print("error: {}".format(exc), file=sys.stderr)
         raise SystemExit(2)
-

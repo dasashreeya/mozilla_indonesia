@@ -175,6 +175,63 @@ def stage_openslr(
 
 
 @app.function(
+    image=base_image,
+    volumes={VOLUME_ROOT: volume},
+    cpu=16,
+    memory=65536,
+    timeout=12 * 60 * 60,
+)
+def stage_openslr_continuation(
+    shards: str = "1-f",
+    exclude_subset: str = "data/subsets/openslr35/shard0-11000-seed-20260905",
+    output_dir: str = "data/subsets/openslr35/shards1-f-continuation",
+    max_utterances: int = 0,
+    force: bool = False,
+) -> Dict[str, object]:
+    """Stage additional SLR35 shards while excluding fixed validation speakers."""
+
+    download_dir = VOLUME_ROOT / "data" / "downloads" / "openslr35"
+    resolved_exclude = safe_volume_path(VOLUME_ROOT, exclude_subset)
+    resolved_output = safe_volume_path(VOLUME_ROOT, output_dir)
+    manifest = resolved_output / "SUBSET_MANIFEST.json"
+    if manifest.exists() and not force:
+        return {"status": "cached", "subset_dir": str(resolved_output), "manifest": _receipt(manifest)}
+    if resolved_output.exists() and force:
+        shutil.rmtree(resolved_output)
+    _run(
+        [
+            "python",
+            "/workspace/scripts/fetch_openslr35.py",
+            "--output-dir",
+            str(download_dir),
+            "--shards",
+            shards,
+        ]
+    )
+    command = [
+        "python",
+        "/workspace/scripts/prepare_openslr35_continuation.py",
+        "--archives-dir",
+        str(download_dir),
+        "--transcripts",
+        str(download_dir / "utt_spk_text.tsv"),
+        "--checksums",
+        str(download_dir / "asr_javanese.sha256"),
+        "--exclude-metadata",
+        str(resolved_exclude / "metadata.csv"),
+        "--output",
+        str(resolved_output),
+        "--shards",
+        shards,
+        "--max-utterances",
+        str(max_utterances),
+    ]
+    _run(command)
+    volume.commit()
+    return {"status": "ready", "subset_dir": str(resolved_output), "manifest": _receipt(manifest)}
+
+
+@app.function(
     image=train_image,
     gpu=DEFAULT_GPU,
     volumes={VOLUME_ROOT: volume},
