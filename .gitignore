@@ -1,5 +1,9 @@
 # Competition data may contain restricted or personally identifying material.
 data/downloads/
+data/*.tar.gz
+data/audit/
+data/recovery-*/
+reports/private/
 data/subsets/
 data/dev_runtime/
 data/jember_segments/

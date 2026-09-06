@@ -3,6 +3,6 @@
   "model_path": "model",
   "batch_size": 24,
   "whisper_batch_size": 16,
-  "max_new_tokens": 256,
+  "max_new_tokens": 512,
   "force_language": null
 }
