@@ -59,6 +59,7 @@ measurement shows is worth up to 6.4 WER points.
 | [01-run-history](01-run-history.md) | Every submission, training run, score, and dataset used, with the reasoning behind each outcome | before proposing anything, so you do not repeat a paid experiment |
 | [02-measured-findings](02-measured-findings.md) | Locally measured facts: scorer verification, error decomposition, the orthography headroom, statistical resolution | when deciding where to spend effort |
 | [03-next-actions](03-next-actions.md) | Prioritised plan to the 2026-09-25 deadline, with the submission budget | at the start of every working session |
+| [04-language-composition](04-language-composition.md) | **Why the leaderboard score is what it is.** Javanese vs code-switched WER, the local-to-leaderboard calibration, and three retired hypotheses | before planning any experiment |
 | [research/winning-solutions.md](research/winning-solutions.md) | **The proven recipe.** Pasketti winners' exact models, LoRA hyperparameters, augmentation, averaging strategy | before designing any training run |
 | [research/official-competition-spec.md](research/official-competition-spec.md) | Verified official facts: audio format, metadata columns, runtime versions, limits, rules | when a factual assumption matters |
 | [research/mdc-data-catalog.md](research/mdc-data-catalog.md) | Every usable MDC dataset with licence, including ~3.5 GB of Javanese TTS corpora | when planning the data mixture |
@@ -74,12 +75,13 @@ Supporting documents that predate this knowledge base:
 
 | | |
 |---|---|
-| Best known full-test score | **0.47555** (base Qwen3-ASR-1.7B, zero-shot) |
+| Best known full-test score | **0.32590**, rank #37 (Jember fine-tune, 2026-09-06) |
+| Previous | 0.47555 (base Qwen3-ASR-1.7B, zero-shot) |
 | Public leader | 0.2196 |
-| Submissions used | 2 |
 | Deadline | 2026-09-25 00:00 UTC |
-| Submission limit | **3 per 7 days, per person** — roughly 8–9 remain |
-| **Blocker** | **MDC HTTP 403 on dev + Jember data.** Dev and test are both drawn from Jember, so this is the entire training set. Clearing it is P0 and may need publisher approval — request it now. |
+| Submission limit | **3 per 7 days, per person.** Smoke tests, cancelled and failed jobs do **not** count — run a smoke submission before every full one. |
+| **Critical path** | **Javanese-only WER, currently 0.3368 on held-out sessions.** ~49% of the test set is Javanese and it carries most of the remaining error. See [04-language-composition](04-language-composition.md). |
+| Forecasting rule | `test ≈ mixed-holdout WER + 0.052`. A development-only fold understates test by ~0.21 and must never be used as a forecast. |
 | Open question for organizers | Jember is CC-BY-NC-SA-4.0. Is an NC-licensed training corpus compatible with the winner obligation that supporting software allow free commercial use? Ask on the forum before depending on it. |
 
 ## Conventions for this knowledge base
@@ -93,6 +95,14 @@ Supporting documents that predate this knowledge base:
 
 ## Changelog
 
+* **2026-09-06** — Public score 0.47555 → **0.32590** (rank #37). Root cause identified:
+  the test set is ~49% Javanese-only and development contains none, so every prior
+  measurement covered half the task. Javanese fine-tuning shown to generalise
+  (0.6953 → 0.3368 on held-out sessions). Local-to-leaderboard calibration established.
+  Decode-config, orthography and spelling-map hypotheses retired with measurements.
+  Fixed a generation-config bug that made checkpoint saving impossible, and hardened the
+  submission entrypoint against per-clip failures. See
+  [04-language-composition](04-language-composition.md).
 * **2026-09-05** — Knowledge base created. Recomputed all checkpoint WERs from raw
   prediction CSVs, verified the local scorer against the official one over 20,014 cases,
   measured the casing and diacritic headroom, reconstructed the smoke-test error counts,

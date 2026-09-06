@@ -99,7 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--split", default="validation")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--max-new-tokens", type=int, default=128)
+    parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--language", default="auto", help="Qwen language name, or auto")
     parser.add_argument("--device", choices=("auto", "cpu", "mps", "cuda:0"), default="auto")
     return parser

@@ -1,0 +1,62 @@
+{
+  "run_id": "qwen-recovery-v1-fold5",
+  "status": "training_running",
+  "optimizer_steps_confirmed": 20,
+  "observed_progress": {
+    "step": 20,
+    "epoch": 0.03628940802903153,
+    "loss": 2.8185,
+    "gradient_norm_before_clipping": 152.0,
+    "max_gradient_norm": 1.0,
+    "learning_rate": 1.4285714285714286e-6
+  },
+  "baseline": {
+    "wer": 0.2659200229736521,
+    "substitutions": 2769,
+    "deletions": 533,
+    "insertions": 402,
+    "reference_words": 13929,
+    "clips": 294,
+    "empty_predictions": 0,
+    "metrics_file": "reports/recovery_baseline_fold5.json"
+  },
+  "app_id": "ap-WE2Z3uLcFewAJlRmJHdgSW",
+  "training_function_call_id": "fc-01M1T1HPMT788BS6T2B8V35RE2",
+  "training_container_started_at": "2026-09-06T00:23:05Z",
+  "app_url": "https://modal.com/apps/dasashreeya/main/ap-WE2Z3uLcFewAJlRmJHdgSW",
+  "volume": "mozilla-indonesian-recovery",
+  "run_directory": "/runs/qwen-recovery-v1-fold5",
+  "upstream_commit": "d773727cc628a1c2aeaf366e21c2d328df76203a",
+  "model": "Qwen/Qwen3-ASR-1.7B",
+  "model_revision": "7278e1e70fe206f11671096ffdd38061171dd6e5",
+  "archive_sha256": "e4a91e335289ac958ff4f312437bcf0c1990a621a6a742485ea65b60c1064ad1",
+  "training_rows": 8818,
+  "unique_training_examples": 8272,
+  "validation_clips": 294,
+  "held_out_development_conversation": "5",
+  "training_development_speakers": ["5", "7"],
+  "validation_speakers": ["1", "6"],
+  "gpu": "A100-80GB",
+  "gpu_function_timeout_seconds": 21600,
+  "epochs_requested": 3,
+  "automatic_retries": 0,
+  "local_tests_passed": 62,
+  "source_sha256": {
+    "scripts/prepare_recovery.py": "952ca02ab53512eb284a54f16ac17cdf27def8927834f770857fd1b013e81e6f",
+    "scripts/train_recovery.py": "8cd7425205b11dfe1c006ef20cbbd00ecb094bac9cb9b39885c48e39838d8ef4",
+    "scripts/modal_recovery.py": "206e8a65e89cb13cde87ffaea2c5a276f4ad7b06122a0365f4787e7da1f5859c",
+    "vendor/qwen3_asr_sft.py": "21bb82a855518e487949f2b13c47c26120e4f07779c0061e79ae058ec18184c7"
+  },
+  "remote_real_batch_masking_probe": {
+    "tokenizer_property": "right",
+    "effective_processor_padding": "left",
+    "active_lengths": [68, 220],
+    "prefix_lengths": [54, 175],
+    "leading_padding": [true, false],
+    "correct_target_tokens": [14, 45],
+    "old_incorrect_supervised_tokens": [54, 0]
+  },
+  "promotion_gate": "Beat same-fold base WER, validate opposite conversation fold, then verify official inference runtime before submission.",
+  "leaderboard_improvement_measured": false,
+  "submitted": false
+}

@@ -354,6 +354,7 @@ def evaluate_qwen(
     split: str = "validation",
     language: str = "auto",
     batch_size: int = 24,
+    max_new_tokens: int = 512,
     limit: int = 0,
     output: str = "results/openslr35-stage1-validation.csv",
 ) -> Dict[str, object]:
@@ -387,6 +388,8 @@ def evaluate_qwen(
         "cuda:0",
         "--batch-size",
         str(batch_size),
+        "--max-new-tokens",
+        str(max_new_tokens),
     ]
     if limit > 0:
         command.extend(["--limit", str(limit)])

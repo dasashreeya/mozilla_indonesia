@@ -1,0 +1,54 @@
+{
+  "wer": 0.2659200229736521,
+  "substitutions": 2769,
+  "deletions": 533,
+  "insertions": 402,
+  "reference_words": 13929,
+  "empty_predictions": 0,
+  "clips": 294,
+  "seconds": 321.84806673,
+  "groups": {
+    "language:javind": {
+      "wer": 0.2659200229736521,
+      "substitutions": 2769,
+      "deletions": 533,
+      "insertions": 402,
+      "reference_words": 13929
+    },
+    "speaker:1": {
+      "wer": 0.3111532728011926,
+      "substitutions": 1721,
+      "deletions": 359,
+      "insertions": 216,
+      "reference_words": 7379
+    },
+    "convo_id:5": {
+      "wer": 0.2659200229736521,
+      "substitutions": 2769,
+      "deletions": 533,
+      "insertions": 402,
+      "reference_words": 13929
+    },
+    "duration:up_to30": {
+      "wer": 0.27039420756234916,
+      "substitutions": 2525,
+      "deletions": 470,
+      "insertions": 366,
+      "reference_words": 12430
+    },
+    "speaker:6": {
+      "wer": 0.2149618320610687,
+      "substitutions": 1048,
+      "deletions": 174,
+      "insertions": 186,
+      "reference_words": 6550
+    },
+    "duration:over30": {
+      "wer": 0.22881921280853904,
+      "substitutions": 244,
+      "deletions": 63,
+      "insertions": 36,
+      "reference_words": 1499
+    }
+  }
+}
