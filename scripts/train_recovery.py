@@ -128,6 +128,17 @@ def main():
     p.add_argument("--keep-epochs", action="store_true",
                    help="Save every epoch's weights, not only improving ones, so the "
                         "checkpoints can be averaged afterwards")
+    p.add_argument("--evals-per-epoch", type=int, default=1,
+                   help="Validate this many times per epoch instead of only at epoch "
+                        "ends. An epoch here is ~550 optimizer steps, so the default of "
+                        "1 gives three measurements over a whole run and can miss the "
+                        "WER-optimal point entirely; it also yields too few checkpoints "
+                        "to average. See docs/kb/11-audit-and-methodology-v2.md F2/F3")
+    p.add_argument("--patience", type=int, default=2,
+                   help="Stop after this many consecutive non-improving validations. "
+                        "Must exceed the number of validations the learning-rate "
+                        "schedule needs to finish, or the run stops before the "
+                        "low-learning-rate phase the cosine decay was configured for")
     args = p.parse_args()
     if args.lora_rank < 0:
         p.error("lora-rank must be non-negative")
@@ -362,27 +373,52 @@ def main():
             self.best_dir = str(args.model)
             self.best_epoch = 0
             self.stale = 0
+            self.last_mark = 0
             self.history = []
 
-        def on_epoch_end(self, training_args, state, control, **kwargs):
-            epoch = int(round(state.epoch))
-            metrics = evaluate(f"epoch-{epoch}")
-            self.history.append({"epoch": epoch, "step": state.global_step, "wer": metrics["wer"]})
+        def record(self, label, epoch, state, control):
+            """Validate once, keep the weights, and decide whether to stop.
+
+            Shared by the epoch boundary and, when --evals-per-epoch > 1, by the
+            intra-epoch marks. Epoch-end directories keep their historical
+            `epoch-N` names because the evaluation and packaging scripts look
+            them up by that name; intra-epoch ones are named by optimizer step.
+            """
+            metrics = evaluate(label)
+            self.history.append({"label": label, "epoch": epoch, "step": state.global_step,
+                                 "wer": metrics["wer"]})
             if args.keep_epochs:
-                save_weights(args.output / f"weights-epoch-{epoch}")
+                save_weights(args.output / f"weights-{label}")
             if metrics["wer"] < self.best:
                 self.best = metrics["wer"]
                 self.stale = 0
                 self.best_epoch = epoch
-                self.best_dir = str(save_weights(args.output / f"best-epoch-{epoch}"))
+                self.best_dir = str(save_weights(args.output / f"best-{label}"))
             else:
                 self.stale += 1
             save_json(args.output / "BEST_MODEL.json", {"path": self.best_dir, "wer": self.best,
                       "baseline_wer": baseline["wer"], "improves_baseline": self.best < baseline["wer"], "epochs": self.history})
             commit()
-            if self.stale >= 2:
+            if self.stale >= args.patience:
                 control.should_training_stop = True
             return control
+
+        def on_step_end(self, training_args, state, control, **kwargs):
+            # Fractional-epoch marks only. The mark that lands on an epoch
+            # boundary is left to on_epoch_end so a boundary is never scored
+            # twice, and so `best-epoch-N` keeps meaning what it always did.
+            if args.evals_per_epoch <= 1:
+                return control
+            mark = int(state.epoch * args.evals_per_epoch + 1e-9)
+            if mark <= self.last_mark or mark % args.evals_per_epoch == 0:
+                return control
+            self.last_mark = mark
+            return self.record(f"step-{state.global_step}", state.epoch, state, control)
+
+        def on_epoch_end(self, training_args, state, control, **kwargs):
+            epoch = int(round(state.epoch))
+            self.last_mark = max(self.last_mark, epoch * args.evals_per_epoch)
+            return self.record(f"epoch-{epoch}", epoch, state, control)
 
         def on_save(self, training_args, state, control, **kwargs):
             processor.save_pretrained(args.output / f"checkpoint-{state.global_step}")

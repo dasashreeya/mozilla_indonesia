@@ -64,6 +64,7 @@ measurement shows is worth up to 6.4 WER points.
 | [06-evidence-audit](06-evidence-audit.md), [07-route-to-target](07-route-to-target.md), [08-target-strategy-summary](08-target-strategy-summary.md) | Independent audit of the evidence, the route toward the target, and the recommended execution order | when planning the next investment |
 | [09-cpu-viability-results](09-cpu-viability-results.md) | Independently implemented selector and audio-side SNR measurement, CPU only | before assuming an ensemble or noise gain |
 | [10-cpu-analysis-and-verdict](10-cpu-analysis-and-verdict.md) | **The verdict on <0.20.** Word-level oracle ceiling, the orthography question settled, error taxonomy, two dead correction strategies, the annotation floor, session 35, and the model survey | before proposing any post-processing, ensemble or base-model change |
+| [11-audit-and-methodology-v2](11-audit-and-methodology-v2.md) | **The 2026-09-07 audit and the route to first place.** Five of twelve arms never ran, the calibration pairs two different models, the leader sits on our oracle, and the five-stage programme that follows | before acting on the `<0.20` verdict in [10](10-cpu-analysis-and-verdict.md) |
 | [PROBLEM_BRIEF](PROBLEM_BRIEF.md) | Portable, self-contained statement of the problem and everything ruled out | when seeking an outside opinion |
 | [research/winning-solutions.md](research/winning-solutions.md) | **The proven recipe.** Pasketti winners' exact models, LoRA hyperparameters, augmentation, averaging strategy | before designing any training run |
 | [research/official-competition-spec.md](research/official-competition-spec.md) | Verified official facts: audio format, metadata columns, runtime versions, limits, rules | when a factual assumption matters |
@@ -81,6 +82,7 @@ Supporting documents that predate this knowledge base:
 | | |
 |---|---|
 | Best known full-test score | **0.32590**, rank #37→#38 (Jember fine-tune, 2026-09-06) |
+| **Superseded verdict** | The `<0.20` "not reachable" finding below is a bound on *recombining nine near-identical systems*, not on the task. Five of twelve defined arms — including the reference winning recipe — have never been run. See [11-audit-and-methodology-v2](11-audit-and-methodology-v2.md) |
 | Hard ceiling on combining what we own | **0.1641 word-level oracle** over nine saved systems, against a 0.148 target. No selector, ensemble or corrector built on current models can reach <0.20 — see [10](10-cpu-analysis-and-verdict.md) |
 | Best validated improvement | **≈0.2631–0.2638 local (−0.005)** from a held-out-validated multi-model selector, needing no new training |
 | Previous | 0.47555 (base Qwen3-ASR-1.7B, zero-shot) |
@@ -102,6 +104,20 @@ Supporting documents that predate this knowledge base:
   the only artifact with a known full-test score.
 
 ## Changelog
+
+* **2026-09-07** — Independent audit. `arm-lora` (the verbatim 1st-place
+  Pasketti recipe), `arm-prompt`, `arm-extra`, `arm-javtts` and `arm-alldata` are
+  defined in `scripts/modal_recovery.py` and have **no results anywhere**, so the
+  conclusion that the winning recipe does not transfer is unsupported by the
+  measurements it cites. The local-to-public calibration pairs a local score from
+  `qwen-jav-holdout-v1` with a public score from `qwen-recovery-v2-fold5`. The
+  nine-system oracle of 0.1641 maps to 0.2161 public against the leader's 0.2196,
+  so first place sits at our oracle rather than beyond it. A live HF survey found
+  VibeVoice runtime-blocked (needs transformers 5; the runtime pins <5) and added
+  the CTC family — `facebook/w2v-bert-2.0`, MIT — which is the only architecture
+  that can use the `kenlm`/`pyctcdecode` the runtime ships. Both datasets raised
+  as "new" were already downloaded and used. See
+  [11-audit-and-methodology-v2](11-audit-and-methodology-v2.md).
 
 * **2026-09-06 (later)** — Ten single-factor training arms and six decode-only arms
   produced **no improvement over the baseline**; the published winning recipe
