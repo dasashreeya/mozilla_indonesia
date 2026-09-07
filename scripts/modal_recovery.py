@@ -766,11 +766,24 @@ def soup_best(label: str = "soup-v1", runs: str = "", top: int = 4,
     """
     import json
     names = [r for r in runs.split(",") if r] or [a["run_id"] for a in WAVE2]
-    # LoRA runs keep adapters, not models. Merge them first or the pool is one
-    # checkpoint per run and there is nothing worth averaging.
-    for name, done in zip(names, merge_adapters.map(names)):
+    # Select first, merge second. Merging every adapter a run kept would be ~12
+    # CPU merges per run of a 1.7B model -- hours of work to throw most of it
+    # away. Scanning the recorded WERs is free, so only the checkpoints that
+    # actually make the soup get merged.
+    candidates = scan_checkpoints.remote(names)
+    if not candidates:
+        raise SystemExit("No scored checkpoints found; did the arms write BEST_MODEL.json?")
+    chosen = candidates[:top]
+    print(f"Selected {len(chosen)} of {len(candidates)} checkpoints:")
+    for wer, run, label in chosen:
+        print(f"  {wer:.4f}  {run}/{label}")
+    by_run = {}
+    for _, run, label in chosen:
+        by_run.setdefault(run, []).append(label)
+    merge_args = list(by_run.items())
+    for (run, _), done in zip(merge_args, merge_adapters.starmap(merge_args)):
         if done.get("merged"):
-            print(f"{name}: {len(done['merged'])} adapter(s) merged", flush=True)
+            print(f"{run}: {len(done['merged'])} adapter(s) merged", flush=True)
     picked = collect_checkpoints.remote(names, top)
     if len(picked) < 2:
         raise SystemExit(f"Need at least two checkpoints to average; found {picked}")
@@ -839,6 +852,34 @@ def merge_adapters(run: str, labels: list[str] = None):
         volume.commit()
     volume.commit()
     return {"run": run, "merged": merged}
+
+
+@app.function(image=stage_image, volumes={"/vol": volume}, timeout=900, cpu=2, memory=4096)
+def scan_checkpoints(runs: list[str]):
+    """Every recorded checkpoint as (wer, run, label), best first.
+
+    Reads only BEST_MODEL.json, so it costs nothing and works whether the
+    checkpoint on disk is a merged model or a bare LoRA adapter. Selection
+    happens against this list; merging happens afterwards, for the winners only.
+    """
+    import json
+    from pathlib import Path
+    found = []
+    for run in runs:
+        check_name(run, "run ID")
+        directory = Path("/vol/runs") / run
+        best = directory / "BEST_MODEL.json"
+        if not best.is_file():
+            continue
+        for entry in json.loads(best.read_text()).get("epochs") or []:
+            wer, label = entry.get("wer"), entry.get("label")
+            if wer is None or not label:
+                continue
+            if any((directory / f"{p}-{label}").is_dir()
+                   for p in ("merged", "weights", "best")):
+                found.append((wer, run, label))
+    found.sort()
+    return found
 
 
 @app.function(image=stage_image, volumes={"/vol": volume}, timeout=900, cpu=2, memory=4096)
