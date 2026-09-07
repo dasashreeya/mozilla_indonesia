@@ -4,7 +4,11 @@ Competition workspace for a reproducible, rules-compliant attempt at the Mozilla
 
 The score target is **WER <= 0.20**. That would beat the 0.2196 public leader visible on 2026-09-05, but it cannot guarantee first place: the final ranking uses the private leaderboard and competitors can improve. The safer engineering gate used here is **mean held-out WER <= 0.185** across conversation/speaker splits before spending a full submission.
 
-**Current status (2026-09-05): best known full-test score is 0.47555, against a public leader at 0.2196.** That submission contained base Qwen3-ASR-1.7B with no fine-tuned weights. Two submissions are spent. **No in-domain WER has ever been measured** because MDC returns HTTP 403 for the development and Jember archives until their terms/access requests are completed in the account web UI; clearing that is the critical path.
+**Current status (2026-09-05): the repository's recorded full-test score is 0.47555 using base Qwen3-ASR-1.7B; current authenticated rankings were not reverified.** The development and Jember archives are locally audited. A new in-domain adaptation run is training on an isolated A100 after quarantining timing defects. Its complete conversation-5 baseline is **WER 0.265920** (294 clips, 13,929 reference words, no empty predictions); this development score is not comparable directly with the full-test leaderboard. See the [run receipt](reports/training_recovery_launch.json), [baseline breakdown](reports/recovery_baseline_fold5.json), and [training plan](docs/training-recovery-plan.md). No fine-tuned improvement or new submission has been established yet.
+
+The **[full data audit](docs/data-audit.md)** covers all 580 source recordings: 372 development clips (2.562 hours) and 208 Jember sessions (10.015 hours). Key findings include mixed training sample rates, substantial transcription-convention differences, and a development set with no Javanese-only clips. Reproduction commands, aggregate JSON reports, and private review queues are linked in the report.
+
+The **[relationship analysis and figures](docs/data-relationships.md)** extend this with speaker/language confounding, audio–text correlations, train/development shifts, session-level quality concentration, and vocabulary coverage under each validation split. It distinguishes measured associations from transcription correctness and model performance, which still require separate evaluation.
 
 The 5-clip smoke test cannot rank systems — Whisper's 0.1913 and Qwen's 0.2000 are 22 versus 23 errors out of 115 reference words. Do not select a model on it.
 
@@ -14,9 +18,17 @@ Start at **[docs/kb/00-README.md](docs/kb/00-README.md)**: the knowledge base ho
 
 Requirements for data preparation are Python 3.9+ and `ffmpeg`. Submission inference must use Python 3.12 in the official runtime.
 
-Primary GPU workflow: use Modal app `govind-llm` and volume `govind-llm-data`.
-See [docs/modal.md](docs/modal.md) for staging, A100 training, evaluation,
-packaging, and download commands.
+The new audited training workflow uses the isolated Modal app/volume
+`mozilla-indonesian-recovery` in the connected account. See the
+[recovery plan](docs/training-recovery-plan.md) for the diagnosis, validation
+split, cost cap, and checkpoint-selection gates. Its entrypoints are
+`scripts/prepare_recovery.py`, `scripts/train_recovery.py`, and
+`scripts/modal_recovery.py` (Python 3.12 on the GPU).
+
+The commands below and [docs/modal.md](docs/modal.md) describe the older
+`govind-llm` / `govind-llm-data` workflow. Its latest-checkpoint packaging is
+not the recovery workflow's WER-best selection and requires access to that
+separate account.
 
 ```bash
 # Public catalog access (no key needed)

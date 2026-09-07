@@ -54,6 +54,7 @@ def patch_outer_forward(model):
             input_features=input_features,
             feature_attention_mask=feature_attention_mask,
             labels=labels,
+            use_cache=False if labels is not None else None,
             **kwargs,
         )
 
@@ -62,6 +63,16 @@ def patch_outer_forward(model):
 
 
 _CKPT_RE = re.compile(r"^checkpoint-(\d+)$")
+
+
+def response_only_labels(input_ids, attention_mask, prefix_lengths):
+    """Ignore padding and prompt positions under either left or right padding."""
+    labels = input_ids.clone()
+    for i, length in enumerate(prefix_lengths):
+        active_positions = attention_mask[i].cumsum(dim=0)
+        ignored = (attention_mask[i] == 0) | (active_positions <= int(length))
+        labels[i, ignored] = -100
+    return labels
 
 
 def find_latest_checkpoint(output_dir: str) -> Optional[str]:
@@ -141,15 +152,9 @@ class DataCollatorForQwen3ASRFinetuning:
         )
 
         prefix_lens = prefix_inputs["attention_mask"].sum(dim=1).tolist()
-        labels = full_inputs["input_ids"].clone()
-        for i, pl in enumerate(prefix_lens):
-            labels[i, :pl] = -100
-
-        pad_id = self.processor.tokenizer.pad_token_id
-        if pad_id is not None:
-            labels[labels == pad_id] = -100
-
-        full_inputs["labels"] = labels
+        full_inputs["labels"] = response_only_labels(
+            full_inputs["input_ids"], full_inputs["attention_mask"], prefix_lens
+        )
         return full_inputs
 
 

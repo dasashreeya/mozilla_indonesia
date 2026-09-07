@@ -1,0 +1,3 @@
+# Python 3.12; ffmpeg and ffprobe must also be installed.
+# Version used for the full local audit on 2026-09-05.
+numpy==2.5.2

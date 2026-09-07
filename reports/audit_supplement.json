@@ -1,0 +1,73 @@
+{
+  "all_training_metadata_text": {
+    "rows": 6679,
+    "scoring_words": 65739,
+    "vocabulary_types": 7875,
+    "words_per_row": {
+      "count": 6679,
+      "mean": 9.842641113939212,
+      "std": 5.694782336645383,
+      "min": 1.0,
+      "p01": 1.0,
+      "p05": 2.0,
+      "median": 9.0,
+      "p95": 20.0,
+      "p99": 27.0,
+      "max": 48.0
+    },
+    "empty_raw_rows": 0,
+    "empty_after_normalization_rows": 0,
+    "rows_changed_by_normalizer": 6679,
+    "rows_with_bracket_annotations": 0,
+    "rows_with_unintelligibility_markers": 0,
+    "rows_with_digits": 49,
+    "rows_with_hyphens": 1565,
+    "rows_with_ellipsis": 714,
+    "rows_not_nfc": 0,
+    "non_ascii_character_counts": {
+      "è": 4833,
+      "ê": 5374,
+      "ě": 820,
+      "…": 4,
+      "’": 19,
+      "“": 29,
+      "”": 28,
+      "ḍ": 17,
+      "é": 1
+    },
+    "duplicate_normalized_text_groups": 32,
+    "duplicate_normalized_text_excess_rows": 108,
+    "reference_lowercase_token_change_fraction": 0.03442401010054914,
+    "reference_accent_strip_token_change_fraction": 0.14291364334717596
+  },
+  "zero_duration_rows": 38,
+  "reversed_timestamp_rows": 3,
+  "timestamp_quarantine_candidate_rows": 46,
+  "clipped_to_audio_interval_union_hours": 9.977122902494331,
+  "vocabulary_oov_fraction_of_dev_tokens": {
+    "scoring": 0.21286817271947384,
+    "casefold": 0.21012296253931942,
+    "accent_and_casefold": 0.17998284243637402
+  },
+  "unique_review_rows": {
+    "train": 1471,
+    "dev": 14
+  },
+  "relaxed_text_overlap": {
+    "dev_rows_with_exact_text_match": 0,
+    "dev_rows_with_shared_5gram": 0,
+    "note": "Text overlap generates review candidates; it does not establish audio identity."
+  },
+  "acoustic_screen": {
+    "method": "FFT sliding cosine of 8-band log spectral differences, 8 kHz mono, 200 ms frames; two query phases",
+    "training_recordings": 208,
+    "development_clips": 372,
+    "review_threshold": 0.65,
+    "above_review_threshold": 0,
+    "best_match_score": 0.4856855273246765,
+    "limitation": "Whole-clip candidate screen, uncalibrated on this corpus. Does not rule out shorter excerpts, changed speed, splices, or speaker overlap."
+  },
+  "acoustic_positive_control_passes": 5,
+  "acoustic_positive_controls": 5,
+  "scope": "Train text in data_audit.json covers 6,638 rows with positive timestamps; all_training_metadata_text here covers all 6,679 rows. No data cleaned or deleted."
+}
