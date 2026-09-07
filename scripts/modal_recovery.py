@@ -533,11 +533,17 @@ W2_VARIANTS = {
     "ds-full": W2_FULL_PREP + ["--language-tags", "--prompt-preset", "codeswitch"],
 }
 
-# Two external corpora, tagged by transcription convention rather than language
-# so their orthography trains the encoder without reaching the decoder.
+# One external corpus, every Javanese source available, tagged by transcription
+# convention rather than by language so its orthography trains the encoder
+# without reaching the decoder.
+#
+# The two Indonesian podcast corpora are not here: they are not downloaded, and
+# they were the source of the only positive signal the previous wave got on the
+# code-switched half. If they are fetched later, add them as a second corpus
+# rather than folding them into this one -- they need their own `Indpod` tag,
+# and mixing registers under one name defeats the point of style conditioning.
 W2_EXTERNAL = {
-    "ext-a": ["cv_jv", "podcast_hari", "podcast_homostoria"],
-    "ext-b": ["tts_lumajang", "tts_bojonegoro"],
+    "ext-b": ["tts_lumajang", "tts_bojonegoro", "cv_jv"],
 }
 
 # The 1st-place reference recipe and the variations around it that were never
@@ -556,9 +562,11 @@ WAVE2 = [
     {"run_id": "arm-extb", "dataset": "ds-base", "lora_rank": 16, "lr": 1e-4,
      "spec_augment": 0.5, "epochs": 3, "keep_epochs": True, "force_language": True,
      "extra_data": "ext-b"},
-    {"run_id": "arm-extall", "dataset": "ds-base", "lora_rank": 16, "lr": 1e-4,
+    # Same external audio at a third of the weight. Read speech has never helped
+    # this task on its own, so the mixture ratio is itself under test.
+    {"run_id": "arm-extb-lo", "dataset": "ds-base", "lora_rank": 16, "lr": 1e-4,
      "spec_augment": 0.5, "epochs": 3, "keep_epochs": True, "force_language": True,
-     "extra_data": "ext-a,ext-b"},
+     "extra_data": "ext-b", "extra_fraction": 0.33},
 ]
 
 
@@ -758,6 +766,11 @@ def soup_best(label: str = "soup-v1", runs: str = "", top: int = 4,
     """
     import json
     names = [r for r in runs.split(",") if r] or [a["run_id"] for a in WAVE2]
+    # LoRA runs keep adapters, not models. Merge them first or the pool is one
+    # checkpoint per run and there is nothing worth averaging.
+    for name, done in zip(names, merge_adapters.map(names)):
+        if done.get("merged"):
+            print(f"{name}: {len(done['merged'])} adapter(s) merged", flush=True)
     picked = collect_checkpoints.remote(names, top)
     if len(picked) < 2:
         raise SystemExit(f"Need at least two checkpoints to average; found {picked}")
@@ -773,9 +786,68 @@ def soup_best(label: str = "soup-v1", runs: str = "", top: int = 4,
     return {"soup": receipt, "eval": result}
 
 
+def _is_full_model(path):
+    """A directory a Qwen3ASRModel can be loaded from, as opposed to an adapter.
+
+    With --lora-rank, every intermediate checkpoint is a PEFT adapter -- an
+    `adapter_model.safetensors` and no `config.json`. Averaging those together
+    is a legitimate technique, but the result cannot be evaluated or packaged
+    without a base model to merge into, and model_soup.py would happily average
+    an adapter with a full model and produce nonsense. So the pool is restricted
+    to real models, and `merge_adapters` below turns adapters into them.
+    """
+    return (path / "config.json").is_file() and any(path.glob("*.safetensors"))
+
+
+@app.function(image=train_image, volumes={"/vol": volume}, timeout=2 * 3600,
+              cpu=8, memory=131072)
+def merge_adapters(run: str, labels: list[str] = None):
+    """Merge a run's LoRA adapters into the base, so each becomes a full model.
+
+    train_recovery.py merges only the single best epoch. Souping wants several
+    checkpoints per run, so this merges the rest on CPU after the fact.
+    """
+    import json
+    import torch
+    from pathlib import Path
+    from peft import PeftModel
+    from qwen_asr import Qwen3ASRModel
+    from transformers import AutoProcessor
+    check_name(run, "run ID")
+    directory = Path("/vol/runs") / run
+    adapters = [d for d in sorted(directory.iterdir())
+                if d.is_dir() and (d / "adapter_config.json").is_file()
+                and (not labels or d.name in labels)]
+    if not adapters:
+        return {"run": run, "merged": [], "note": "no adapters; nothing to merge"}
+    processor = AutoProcessor.from_pretrained("/vol/models/qwen3-asr-1.7b",
+                                              local_files_only=True)
+    merged = []
+    for adapter_dir in adapters:
+        target = directory / f"merged-{adapter_dir.name.split('-', 1)[1]}"
+        if _is_full_model(target):
+            merged.append(str(target))
+            continue
+        base = Qwen3ASRModel.from_pretrained("/vol/models/qwen3-asr-1.7b",
+               dtype=torch.bfloat16, device_map="cpu", local_files_only=True).model
+        PeftModel.from_pretrained(base, str(adapter_dir)).merge_and_unload(
+            ).save_pretrained(target, safe_serialization=True)
+        processor.save_pretrained(target)
+        del base
+        merged.append(str(target))
+        print(f"Merged {adapter_dir.name} -> {target.name}", flush=True)
+        volume.commit()
+    volume.commit()
+    return {"run": run, "merged": merged}
+
+
 @app.function(image=stage_image, volumes={"/vol": volume}, timeout=900, cpu=2, memory=4096)
 def collect_checkpoints(runs: list[str], top: int = 4):
-    """Volume-relative paths of the `top` best-scoring kept checkpoints."""
+    """Volume-relative paths of the `top` best-scoring loadable checkpoints.
+
+    Scored by the WER recorded for that checkpoint's label, so the pool is the
+    genuinely best points across every run rather than one per run.
+    """
     import json
     from pathlib import Path
     scored = []
@@ -790,8 +862,9 @@ def collect_checkpoints(runs: list[str], top: int = 4):
             wer, label = entry.get("wer"), entry.get("label")
             if wer is None or not label:
                 continue
-            for name in (f"weights-{label}", f"best-{label}"):
-                if (directory / name).is_dir():
+            for name in (f"merged-{label}", f"weights-{label}", f"best-{label}"):
+                candidate = directory / name
+                if candidate.is_dir() and _is_full_model(candidate):
                     scored.append((wer, f"runs/{run}/{name}"))
                     break
     scored.sort()
@@ -800,7 +873,7 @@ def collect_checkpoints(runs: list[str], top: int = 4):
 
 @app.local_entrypoint()
 def final_fit(run_id: str = "arm-final", dataset: str = "ds-full", steps: int = 0,
-              lora_rank: int = 16, lr: float = 1e-4, extra_data: str = "ext-a,ext-b"):
+              lora_rank: int = 16, lr: float = 1e-4, extra_data: str = "ext-b"):
     """The last run: every labelled row, no holdout, no checkpoint selection.
 
     `steps` is the optimizer-step count the validated arms chose. It is required
