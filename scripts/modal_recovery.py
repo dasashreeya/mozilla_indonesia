@@ -864,7 +864,7 @@ def merge_adapters(run: str, labels: list[str] = None):
              if d.is_dir() and (d / "adapter_config.json").is_file()]
     adapters = [directory / n for n in select_adapter_labels(names, labels).values()]
     if not adapters:
-        return {"run": run, "merged": [], "requested": sorted(wanted),
+        return {"run": run, "merged": [], "requested": sorted(labels or ()),
                 "note": "no matching adapters; full fine-tune runs need no merge"}
     processor = AutoProcessor.from_pretrained("/vol/models/qwen3-asr-1.7b",
                                               local_files_only=True)
