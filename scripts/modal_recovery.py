@@ -531,6 +531,12 @@ W2_VARIANTS = {
     "ds-base": W2_PREP + ["--language-tags"],
     "ds-prompt": W2_PREP + ["--language-tags", "--prompt-preset", "codeswitch"],
     "ds-full": W2_FULL_PREP + ["--language-tags", "--prompt-preset", "codeswitch"],
+    # The final fit has to reproduce the winning arm's recipe exactly, and the
+    # winning arm trained without a context prompt: arm-prompt measured 0.2422
+    # against arm-lora's 0.2403 at the same epoch, so the prompt's zero-shot
+    # gain does not survive fine-tuning and only adds a string that must then
+    # match byte-for-byte between training and the submission config.
+    "ds-full-np": W2_FULL_PREP + ["--language-tags"],
 }
 
 # One external corpus, every Javanese source available, tagged by transcription
@@ -780,8 +786,8 @@ def soup_best(label: str = "soup-v1", runs: str = "", top: int = 4,
     by_run = {}
     for _, run, label in chosen:
         by_run.setdefault(run, []).append(label)
-    merge_args = list(by_run.items())
-    for (run, _), done in zip(merge_args, merge_adapters.starmap(merge_args)):
+    for run, labels in by_run.items():
+        done = merge_adapters.remote(run, labels)
         if done.get("merged"):
             print(f"{run}: {len(done['merged'])} adapter(s) merged", flush=True)
     picked = collect_checkpoints.remote(names, top)
@@ -1059,8 +1065,13 @@ def soup_pick(checkpoints: str, label: str = "soup-pick", dataset: str = "ds-bas
         if not run or not name:
             raise SystemExit(f"Expected run/label, got {pick!r}")
         by_run.setdefault(run, []).append(name)
-    merge_args = list(by_run.items())
-    for (run, _), done in zip(merge_args, merge_adapters.starmap(merge_args)):
+    # Sequential .remote() rather than .starmap(): the Modal client's starmap
+    # iterator raises "aclose(): asynchronous generator is already running" here
+    # and takes the entrypoint down *after* the merges succeed, so the soup never
+    # runs and the work looks lost. Merges are idempotent, so the cost of doing
+    # them one at a time is only wall clock.
+    for run, labels in by_run.items():
+        done = merge_adapters.remote(run, labels)
         print(f"{run}: merged {len(done.get('merged', []))}", flush=True)
     paths = resolve_checkpoints.remote(picks)
     print("Averaging:\n  " + "\n  ".join(paths))
