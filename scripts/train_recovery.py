@@ -79,6 +79,34 @@ def spec_augment(features, lengths, freq_width, time_width, probability, generat
     return features
 
 
+def enable_input_grads(root):
+    """Make every embedding output require grad; return how many were hooked.
+
+    Stands in for `PreTrainedModel.enable_input_require_grads()`, which
+    Qwen3ASRForConditionalGeneration does not support on transformers 4.57.6 --
+    it calls `get_input_embeddings()`, which raises NotImplementedError. Under
+    LoRA every base weight is frozen, so without this the checkpointed segment
+    has no differentiable input and the backward pass dies with "element 0 of
+    tensors does not require grad".
+
+    The hook goes on `nn.Embedding` instances rather than one named attribute,
+    because the model has an audio tower and a text tower and the module path
+    differs between them.
+    """
+    import torch
+
+    def require_grad(_module, _inputs, output):
+        if torch.is_tensor(output) and output.is_floating_point():
+            output.requires_grad_(True)
+
+    hooked = 0
+    for module in root.modules():
+        if isinstance(module, torch.nn.Embedding):
+            module.register_forward_hook(require_grad)
+            hooked += 1
+    return hooked
+
+
 def save_json(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(path.suffix + ".tmp")
@@ -287,9 +315,19 @@ def main():
         # With every base weight frozen, the embedding output carries no grad, so
         # gradient checkpointing would hand the backward pass a graph with nothing
         # to differentiate ("element 0 of tensors does not require grad").
-        for target in (model, getattr(model, "thinker", None)):
-            if target is not None and hasattr(target, "enable_input_require_grads"):
-                target.enable_input_require_grads()
+        #
+        # transformers' own enable_input_require_grads() cannot do this here: on
+        # 4.57.6 it calls get_input_embeddings(), which raises
+        # `NotImplementedError: not auto-handled for Qwen3ASRForConditionalGeneration`.
+        # That exception is why every LoRA arm in this project has failed at
+        # startup and why arm-lora has no recorded result. Hook the embeddings
+        # directly instead, and fail loudly if the model has none rather than
+        # training something whose backward pass is empty.
+        hooked = enable_input_grads(model)
+        if not hooked:
+            raise RuntimeError("Found no embedding to attach an input-grad hook to; "
+                               "gradient checkpointing would produce an empty graph")
+        print(f"Input-grad hooks attached to {hooked} embedding module(s)", flush=True)
         adapted = sum(1 for name, _ in model.named_modules() if name.endswith("lora_A.default"))
         if not adapted:
             raise RuntimeError("LoRA matched no modules; target_modules does not fit this model")
