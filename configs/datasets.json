@@ -38,6 +38,24 @@
       "size_bytes": 1528281328,
       "sha256": "4b57ad8a41b1fe3eb597fbd72ff581833a2365c10d0e28fb351e365bc05d7d66"
     },
+    "tts_lumajang": {
+      "id": "cml5bgysg00bhkr07g23kewke",
+      "name": "TTS Javanese-Lumajang Dialect",
+      "priority": 1,
+      "role": "East Javanese read-speech supplement; Lumajang borders Jember",
+      "license": "CC-BY-SA-4.0",
+      "size_bytes": 717564044,
+      "sha256": "305c53b2ad5399412b9cc85052792e8947ae3fa8c7696c16657e958072ba6804"
+    },
+    "tts_bojonegoro": {
+      "id": "cmltnzkug0012mh07k1obic7v",
+      "name": "Bojonegoro Javanese TTS",
+      "priority": 1,
+      "role": "East Javanese read-speech supplement; cap so TTS does not dominate",
+      "license": "CC-BY-SA-4.0",
+      "size_bytes": 492306647,
+      "sha256": "39569a50617e532c8c0b18e1d7f916c45bb0ce23d6e14b5b7212b2f89df57cc1"
+    },
     "panjebar_text": {
       "id": "cmk719jvs02z1nt07tjswt52s",
       "name": "Corpus of Panjebar Semangat Javanese-Language Magazine",
