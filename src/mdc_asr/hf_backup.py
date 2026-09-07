@@ -144,17 +144,19 @@ def upload_items(
         repo_type=repo_type,
         exist_ok=True,
     )
-    api.upload_file(
-        path_or_fileobj=backup_readme(),
-        path_in_repo="README.md",
-        repo_id=resolved_repo,
-        repo_type=repo_type,
-        token=token,
-        commit_message="{} README".format(commit_prefix),
-    )
+    # Every loose file goes up in ONE commit. A per-file commit is what tripped
+    # the Hub's 128-commits-per-hour limit: a training wave leaves ~15 receipt
+    # and prediction files per arm, so a routine backup asked for eighty-odd
+    # commits and got a 429 with an hour-long cooldown. Directories keep
+    # upload_folder, which is already a single commit each.
+    from huggingface_hub import CommitOperationAdd
 
     uploaded = []
     skipped = []
+    # The README rides along in the same commit rather than taking one of its
+    # own -- it is one more commit against an hourly budget, every backup.
+    operations = [CommitOperationAdd(path_in_repo="README.md",
+                                     path_or_fileobj=backup_readme())]
     for item in items:
         if not item.local_path.exists():
             skipped.append(str(item.local_path))
@@ -168,23 +170,42 @@ def upload_items(
                 token=token,
                 commit_message="{} {}".format(commit_prefix, item.path_in_repo),
             )
-        else:
-            commit = api.upload_file(
-                path_or_fileobj=item.local_path,
-                path_in_repo=item.path_in_repo,
-                repo_id=resolved_repo,
-                repo_type=repo_type,
-                token=token,
-                commit_message="{} {}".format(commit_prefix, item.path_in_repo),
+            uploaded.append(
+                {
+                    "local_path": str(item.local_path),
+                    "path_in_repo": item.path_in_repo,
+                    "commit": getattr(commit, "commit_url", None) or str(commit),
+                }
             )
-        uploaded.append(
-            {
-                "local_path": str(item.local_path),
-                "path_in_repo": item.path_in_repo,
-                "commit": getattr(commit, "commit_url", None) or str(commit),
-            }
+        else:
+            operations.append(
+                CommitOperationAdd(
+                    path_in_repo=item.path_in_repo,
+                    path_or_fileobj=str(item.local_path),
+                )
+            )
+            uploaded.append(
+                {
+                    "local_path": str(item.local_path),
+                    "path_in_repo": item.path_in_repo,
+                    "commit": "batched",
+                }
+            )
+    if len(operations) > 1 or not uploaded:
+        commit = api.create_commit(
+            repo_id=resolved_repo,
+            repo_type=repo_type,
+            operations=operations,
+            token=token,
+            commit_message="{} {} file(s)".format(commit_prefix, len(operations)),
         )
-    return {"repo_id": resolved_repo, "uploaded": uploaded, "skipped": skipped}
+        url = getattr(commit, "commit_url", None) or str(commit)
+        for record in uploaded:
+            if record["commit"] == "batched":
+                record["commit"] = url
+    return {"repo_id": resolved_repo, "uploaded": uploaded, "skipped": skipped,
+            "commits": sum(1 for i in items if i.local_path.exists() and i.local_path.is_dir())
+                       + (1 if len(operations) > 1 or not uploaded else 0)}
 
 
 def parse_item_specs(specs: Iterable[str]) -> List[BackupItem]:
