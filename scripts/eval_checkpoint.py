@@ -189,6 +189,9 @@ def main():
             empty += not bool(text)
             groups[f"language:{row['language']}"] += counts
             groups[f"source:{row['source']}"] += counts
+            # Older preparations predate the column; skip rather than mislabel.
+            if row.get("session"):
+                groups[f"session:{row['session']}"] += counts
             groups["duration:over30" if float(row["duration_seconds"]) > 30 else "duration:up_to30"] += counts
             predictions.append({"audio_filename": row["audio_filename"], "transcript": text})
         done = min(start + args.batch_size, len(rows))

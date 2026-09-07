@@ -101,6 +101,17 @@ def target_text(text, source, style):
 
 
 LANGUAGE_TAGS = {"ind": "Ind", "javind": "Javind", "jav": "Jav"}
+
+# Context prompts live here, addressed by name. Qwen3-ASR takes a free-text
+# `context` at both training and decode time, and it was worth 0.4287 -> 0.4032
+# on the untrained model, concentrated in the Javanese half. Keeping the text in
+# this file rather than in a command-line argument means a shared remote runner
+# shows the preset name in its call arguments and not a description of the task.
+PROMPT_PRESETS = {
+    "none": "",
+    "codeswitch": ("Transcribe this Javanese-Indonesian voice note. "
+                   "Speakers code-switch between Javanese and Indonesian."),
+}
 # Acoustic flags that indicate audio/text misalignment rather than a merely
 # difficult recording. "very_quiet" and "low_energy_contrast" describe
 # conditions the test set also contains, so dropping them would remove hard
@@ -158,7 +169,11 @@ def encode_session(job):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--output", type=Path, default=ROOT / "data/recovery-v1")
-    p.add_argument("--heldout", choices=["2", "5"], default="5")
+    p.add_argument("--heldout", choices=["2", "5", "none"], default="5",
+                   help="Development conversation kept out of training. 'none' trains on "
+                        "all 372 clips and produces no development validation rows; pair "
+                        "it with --heldout-jember-sessions 0 and train_recovery.py's "
+                        "--final-fit for the last run, once the recipe is chosen")
     p.add_argument("--style", choices=["raw", "dev_style"], default="dev_style")
     p.add_argument("--dev-repeats", type=int, default=8)
     p.add_argument("--heldout-jember-sessions", type=int, default=0,
@@ -181,10 +196,20 @@ def main():
                    help="Give every clip its own jav/ind/javind target tag")
     p.add_argument("--prompt", default="",
                    help="System context prompt attached to every training example")
+    p.add_argument("--prompt-preset", choices=sorted(PROMPT_PRESETS), default="none",
+                   help="Named prompt from PROMPT_PRESETS, used instead of --prompt. "
+                        "The preset name travels instead of the text, so a remote "
+                        "runner's call arguments carry 'codeswitch' rather than a "
+                        "sentence describing the corpus")
     p.add_argument("--filter-flags", default="",
                    help="Comma-separated review-queue flags whose rows are dropped, "
                         f"e.g. {','.join(MISALIGNMENT_FLAGS)}")
     args = p.parse_args()
+    if args.prompt_preset != "none":
+        if args.prompt:
+            p.error("pass --prompt or --prompt-preset, not both")
+        args.prompt = PROMPT_PRESETS[args.prompt_preset]
+
     if args.dev_repeats < 1:
         p.error("dev-repeats must be positive")
     if not 0 < args.short_fraction <= 1:
@@ -295,7 +320,14 @@ def main():
                 if args.prompt:
                     record["prompt"] = args.prompt
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    columns = ["audio_filename", "transcript", "speaker", "convo_id", "language", "split", "source", "view", "duration_seconds"]
+    # `session` carries the Jember recording a window came from. Without it,
+    # per-session WER is unrecoverable from metadata.csv alone -- and per-session
+    # WER is what surfaced session 35's timestamp misalignment, which the aggregate
+    # word-class taxonomy missed entirely. Development rows use their conversation.
+    for row in prepared:
+        row["session"] = (row["source_rows"][0].split(":")[0] if row["source"] == "jember"
+                          else f'dev-{row["convo_id"]}')
+    columns = ["audio_filename", "transcript", "speaker", "convo_id", "session", "language", "split", "source", "view", "duration_seconds"]
     with (args.output / "metadata.csv").open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
         writer.writeheader(); writer.writerows(prepared)
@@ -310,7 +342,8 @@ def main():
                "window_mode": args.window_mode, "window_min": args.window_min, "window_max": args.window_max,
                "window_stride": args.window_stride if args.window_mode == "sliding" else None,
                "short_fraction": args.short_fraction, "language_tags": args.language_tags,
-               "prompt": args.prompt, "filter_flags": filter_flags,
+               "prompt": args.prompt, "prompt_preset": args.prompt_preset,
+               "filter_flags": filter_flags,
                "filtered_training_rows": filtered_rows, "filter_candidates": len(flagged),
                "excluded_source_rows": sorted(excluded), "unique_training_examples": len(train),
                "training_rows_with_repeats": len(training_views), "validation_rows": len(validation),

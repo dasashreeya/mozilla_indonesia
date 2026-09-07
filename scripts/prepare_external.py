@@ -46,27 +46,62 @@ SOURCES = {
     # (OpenSLR-35, standard Central Javanese), so these are only ever a
     # supplement to spontaneous in-domain audio, never the primary source.
     "tts_lumajang": {"kind": "nested_zip", "language": "jav", "style": "dev_style",
-                     "licence": "CC-BY-SA-4.0"},
+                     "style_tag": "Javtts", "licence": "CC-BY-SA-4.0"},
     "tts_bojonegoro": {"kind": "nested_zip", "language": "jav", "style": "dev_style",
-                       "licence": "CC-BY-SA-4.0"},
+                       "style_tag": "Javtts", "licence": "CC-BY-SA-4.0"},
     "cv_jv": {"kind": "clips", "language": "jav", "style": "dev_style",
+              "style_tag": "Javcv",
               "transcripts": "sps-corpus-4.0-2026-06-12-jv/ss-corpus-jv.tsv",
               "audio_dir": "sps-corpus-4.0-2026-06-12-jv/audios",
               "columns": {"name": "audio_file", "text": "transcription"},
               "licence": "CC0-1.0"},
     "cv_id_scripted": {"kind": "clips", "language": "ind", "style": "raw",
+                       "style_tag": "Indcv",
                        "transcripts": "cv-corpus-26.0-2026-06-12/id/validated.tsv",
                        "audio_dir": "cv-corpus-26.0-2026-06-12/id/clips",
                        "columns": {"name": "path", "text": "sentence"},
                        "licence": "CC0-1.0"},
     "podcast_hari": {"kind": "segments", "language": "ind", "style": "raw",
+                     "style_tag": "Indpod",
                      "transcripts": "2/Transcript_Hari Minggoean.tsv",
                      "audio_dir": "2", "suffix": ".mp3", "licence": "CC-BY-SA-4.0"},
     "podcast_homostoria": {"kind": "segments", "language": "ind", "style": "raw",
+                           "style_tag": "Indpod",
                            "transcripts": "homostoria/transcript_homostoria.tsv",
                            "audio_dir": "homostoria", "suffix": ".mp3",
                            "licence": "CC-BY-SA-4.0"},
 }
+
+
+def target_tag(source, language, language_tags, style_tags):
+    """The tag written into the training target for one external row.
+
+    Three modes, in increasing specificity:
+
+    * neither flag -- the original two-way tag, `Indonesian` or `None`;
+    * `--language-tags` -- the clip's competition label, `Jav`/`Ind`/`Javind`,
+      matching what the in-domain preparation writes and what test_metadata.csv
+      supplies at inference;
+    * `--style-tags` -- a per-corpus tag naming the *transcription convention*
+      rather than the language: `Javtts` for East Javanese read speech, `Javcv`
+      for Common Voice, `Indpod` for the podcasts.
+
+    Style tags exist because Jember, the TTS corpora and Common Voice are all
+    Javanese but write it differently, and a decoder trained to emit all of them
+    under one tag learns a blend of conventions. Tagged separately, the external
+    audio still trains the encoder while only in-domain rows teach the decoder
+    Jember's spelling -- decoding always forces the in-domain tag, so the
+    external conventions are reachable during training and unreachable at
+    inference. Tags survive qwen-asr's `normalize_language_name` (first
+    character upper, rest lower) unchanged, so the forced decode prefix matches
+    the trained one byte for byte.
+    """
+    if style_tags:
+        tag = SOURCES[source]["style_tag"]
+        if tag != tag[:1].upper() + tag[1:].lower():
+            raise ValueError(f"Style tag {tag!r} would not survive normalisation")
+        return tag
+    return language_tag(language, language_tags)
 
 
 def member_index(archive: tarfile.TarFile):
@@ -275,6 +310,11 @@ def main():
     p.add_argument("--clip-min-seconds", type=float, default=5.0)
     p.add_argument("--clip-max-seconds", type=float, default=30.0)
     p.add_argument("--language-tags", action="store_true")
+    p.add_argument("--style-tags", action="store_true",
+                   help="Tag each corpus by its transcription convention rather than "
+                        "its language, so external orthography trains the encoder "
+                        "without reaching the decoder at inference. Implies the "
+                        "in-domain data is prepared with --language-tags")
     p.add_argument("--prompt", default="")
     args = p.parse_args()
     if args.output.exists() and any(args.output.iterdir()):
@@ -319,9 +359,9 @@ def main():
 
     with (args.output / "train.qwen.jsonl").open("w") as handle:
         for row in prepared:
+            tag = target_tag(row["source"], row["language"], args.language_tags, args.style_tags)
             record = {"audio": "audio/" + row["audio_filename"],
-                      "text": f'language {language_tag(row["language"], args.language_tags)}'
-                              f'<asr_text>{row["transcript"]}'}
+                      "text": f'language {tag}<asr_text>{row["transcript"]}'}
             if args.prompt:
                 record["prompt"] = args.prompt
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -337,6 +377,9 @@ def main():
                "min_seconds": args.min_seconds, "max_seconds": args.max_seconds,
                "clip_min_seconds": args.clip_min_seconds, "clip_max_seconds": args.clip_max_seconds,
                "stride": args.stride, "language_tags": args.language_tags,
+               "style_tags": args.style_tags,
+               "style_tag_by_source": {name: SOURCES[name]["style_tag"] for name in digests}
+                                      if args.style_tags else {},
                "prompt": args.prompt,
                "metadata_sha256": digest_file(args.output / "metadata.csv"),
                "train_jsonl_sha256": digest_file(args.output / "train.qwen.jsonl"),

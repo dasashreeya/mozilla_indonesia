@@ -1,7 +1,7 @@
 PYTHON ?= python3
 export PYTHONPATH := src
 
-.PHONY: test catalog score runtime openslr-download openslr-subset whisper-smoke qwen-smoke hf-backup-local modal-status modal-stage-qwen modal-stage-openslr modal-train modal-eval modal-package modal-download modal-backup-hf
+.PHONY: w2-upload w2-prep w2-stage0 w2-train w2-soup w2-final w2-report w2-plots test catalog score runtime openslr-download openslr-subset whisper-smoke qwen-smoke hf-backup-local modal-status modal-stage-qwen modal-stage-openslr modal-train modal-eval modal-package modal-download modal-backup-hf
 
 test:
 	$(PYTHON) -m unittest discover -s tests -v
@@ -65,3 +65,34 @@ modal-download:
 
 modal-backup-hf:
 	uvx --from modal modal run modal_app.py::backup_to_hf
+
+# --- Wave 2: the depth path (docs/kb/12-runbook-wave2.md) -------------------
+# MODAL_APP_NAME / MODAL_VOLUME_NAME override the generic defaults if needed.
+MODAL ?= uvx --from modal modal
+PREP_SHA ?=
+
+w2-upload:
+	python3 scripts/upload_external.py
+
+w2-prep:
+	@test -n "$(PREP_SHA)" || (echo "set PREP_SHA=<sha256 of uploads/prep-sources.tar>" && exit 1)
+	$(MODAL) run scripts/modal_recovery.py::prep2 --sources-sha256 $(PREP_SHA)
+
+w2-stage0:
+	$(MODAL) run scripts/modal_recovery.py::stage0
+
+w2-train:
+	$(MODAL) run --detach scripts/modal_recovery.py::wave2
+
+w2-soup:
+	$(MODAL) run scripts/modal_recovery.py::soup_best
+
+w2-final:
+	@test -n "$(STEPS)" || (echo "set STEPS=<optimizer steps the arms selected>" && exit 1)
+	$(MODAL) run --detach scripts/modal_recovery.py::final_fit --steps $(STEPS)
+
+w2-plots:
+	$(MODAL) run scripts/modal_recovery.py::plots
+
+w2-report:
+	$(MODAL) run scripts/modal_recovery.py::report

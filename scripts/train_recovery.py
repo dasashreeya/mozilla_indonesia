@@ -134,6 +134,10 @@ def main():
                         "1 gives three measurements over a whole run and can miss the "
                         "WER-optimal point entirely; it also yields too few checkpoints "
                         "to average. See docs/kb/11-audit-and-methodology-v2.md F2/F3")
+    p.add_argument("--final-fit", action="store_true",
+                   help="Train on every labelled row with no validation split and no "
+                        "checkpoint selection. For the last run only, after the recipe "
+                        "and step count have been chosen by the validated arms")
     p.add_argument("--patience", type=int, default=2,
                    help="Stop after this many consecutive non-improving validations. "
                         "Must exceed the number of validations the learning-rate "
@@ -191,9 +195,18 @@ def main():
             written += 1
         return written
 
-    def rebase_metadata(directory, handle, fraction, tagged, prompt):
-        """Emit an extra corpus's training rows in the primary arm's convention."""
+    def rebase_metadata(directory, handle, fraction, tagged, prompt, style_map=None):
+        """Emit an extra corpus's training rows in the primary arm's convention.
+
+        `style_map` comes from the extra corpus's own preparation receipt and maps
+        a source name to its transcription-convention tag. When it covers a row,
+        it wins: the whole point of a style tag is that the external corpus is
+        *not* written in the primary arm's convention, so folding it back into
+        the in-domain language tag would undo the separation. Rows from a corpus
+        the map does not cover keep the language tag.
+        """
         import random as _random
+        style_map = style_map or {}
         picker = _random.Random(f"20260905:{directory.name}")
         with (directory / "metadata.csv").open() as source:
             rows = [r for r in csv.DictReader(source) if r["split"] == "train"]
@@ -204,8 +217,9 @@ def main():
             path = directory / "audio" / row["audio_filename"]
             if not path.is_file():
                 raise ValueError(f"Missing extra training audio: {path}")
-            tag = LANGUAGE_TAGS[row["language"]] if tagged else (
-                "Indonesian" if row["language"] == "ind" else "None")
+            tag = style_map.get(row["source"]) or (
+                LANGUAGE_TAGS[row["language"]] if tagged else
+                ("Indonesian" if row["language"] == "ind" else "None"))
             record = {"audio": str(path), "text": f'language {tag}<asr_text>{row["transcript"]}'}
             if prompt:
                 record["prompt"] = prompt
@@ -224,8 +238,10 @@ def main():
             # Rebuilt from the extra corpus's metadata rather than copied from its
             # own jsonl, so one decoded copy of the audio serves every arm whatever
             # tagging and prompt that arm uses.
-            added = rebase_metadata(directory, f, args.extra_fraction, tagged, prompt)
-            extra_receipts[directory.name] = {"rows": added, "sources": extra.get("sources")}
+            style_map = extra.get("style_tag_by_source") or {}
+            added = rebase_metadata(directory, f, args.extra_fraction, tagged, prompt, style_map)
+            extra_receipts[directory.name] = {"rows": added, "sources": extra.get("sources"),
+                                              "style_tags": style_map}
             count += added
             print(f"Added {added} rows from {directory.name}", flush=True)
     method = ("LoRA r={} alpha={}".format(args.lora_rank, args.lora_alpha) if args.lora_rank
@@ -335,7 +351,19 @@ def main():
         commit()
         return result
 
-    baseline = evaluate("baseline")
+    if args.final_fit:
+        # The recipe and step count are already chosen by the validated arms, so
+        # the last run trains on every labelled row -- including the 294
+        # development clips and the 20 Jember sessions each earlier arm had to
+        # withhold. There is nothing left to select on, so validation is skipped
+        # rather than faked; checkpoints are kept on a step schedule instead.
+        if validation:
+            raise ValueError("--final-fit needs a dataset prepared with no validation split; "
+                             f"this one carries {len(validation)} validation rows")
+        baseline = {"wer": float("inf"), "final_fit": True}
+        print("Final fit: no validation, no checkpoint selection, keeping every save", flush=True)
+    else:
+        baseline = evaluate("baseline")
     raw = load_dataset("json", data_files={"train": str(rebased)})["train"]
     dataset = raw.map(make_preprocess_fn_prefix_only(processor), num_proc=1)
     keep = {"prompt", "audio", "target", "prefix_text"}
@@ -384,6 +412,19 @@ def main():
             `epoch-N` names because the evaluation and packaging scripts look
             them up by that name; intra-epoch ones are named by optimizer step.
             """
+            if args.final_fit:
+                # Nothing to select on: keep the checkpoint and carry on.
+                save_weights(args.output / f"weights-{label}")
+                self.best_dir = str(args.output / f"weights-{label}")
+                self.best_epoch = epoch
+                self.history.append({"label": label, "epoch": epoch, "step": state.global_step,
+                                     "wer": None})
+                save_json(args.output / "BEST_MODEL.json",
+                          {"path": self.best_dir, "wer": None, "final_fit": True,
+                           "baseline_wer": None, "improves_baseline": None,
+                           "epochs": self.history})
+                commit()
+                return control
             metrics = evaluate(label)
             self.history.append({"label": label, "epoch": epoch, "step": state.global_step,
                                  "wer": metrics["wer"]})
