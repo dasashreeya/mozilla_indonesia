@@ -290,7 +290,7 @@ def train_whisper(run_id: str, dataset: str = "ds-w0", epochs: int = 1,
 
 
 @app.function(image=train_image, volumes={"/vol": volume}, gpu="A100-80GB", cpu=8,
-              memory=65536, timeout=6 * 3600, retries=0, single_use_containers=True)
+              memory=65536, timeout=11 * 3600, retries=0, single_use_containers=True)
 def train(run_id: str = "run-v1", epochs: int = 3, max_steps: int = -1,
           dataset: str = "ds-v1", lr: float = 1e-5, batch_size: int = 2, grad_acc: int = 8,
           lora_rank: int = 0, lora_alpha: int = 32, spec_augment: float = 0.0,
