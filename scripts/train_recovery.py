@@ -79,6 +79,28 @@ def spec_augment(features, lengths, freq_width, time_width, probability, generat
     return features
 
 
+def sanitize_generation_config(model):
+    """Drop sampling-only flags that transformers refuses to serialise.
+
+    The pinned checkpoint ships generation_config.json with do_sample=false and
+    temperature=1e-06. transformers validates that pair strictly on every
+    save_pretrained and raises ValueError, which aborts the save. Dropping the
+    flags is correct rather than enabling sampling: evaluation and the
+    submission both decode greedily.
+
+    This has to be applied to *every* model that gets saved, including the fresh
+    base loaded for the LoRA merge -- that one is not the training model and so
+    does not inherit the fix applied there.
+    """
+    config = getattr(model, "generation_config", None)
+    if config is None:
+        return model
+    for flag in ("temperature", "top_p", "top_k", "typical_p", "min_p"):
+        if not config.do_sample and getattr(config, flag, None) is not None:
+            setattr(config, flag, None)
+    return model
+
+
 def enable_input_grads(root):
     """Make every embedding output require grad; return how many were hooked.
 
@@ -294,9 +316,7 @@ def main():
     # save_pretrained, so both this callback's save and the Trainer's own epoch
     # save raise ValueError and abort the run. Drop the sampling-only flags
     # instead of enabling sampling: evaluation and submission both decode greedily.
-    for _flag in ("temperature", "top_p", "top_k", "typical_p", "min_p"):
-        if not model.generation_config.do_sample and getattr(model.generation_config, _flag, None) is not None:
-            setattr(model.generation_config, _flag, None)
+    sanitize_generation_config(model)
     print(f"Processor padding side: {processor.tokenizer.padding_side}", flush=True)
     if args.force_language:
         print(f"Registered forced language tags: {register_competition_languages()}", flush=True)
@@ -538,7 +558,11 @@ def main():
         base = Qwen3ASRModel.from_pretrained(str(args.model), dtype=torch.bfloat16,
                device_map="cpu", local_files_only=True).model
         adapter = PeftModel.from_pretrained(base, str(callback.best_dir))
-        adapter.merge_and_unload().save_pretrained(merged, safe_serialization=True)
+        # The merged model carries the freshly loaded base's generation config,
+        # not the sanitised training one, so it needs the same treatment or the
+        # save at the very end of a multi-hour run raises ValueError.
+        merged_model = sanitize_generation_config(adapter.merge_and_unload())
+        merged_model.save_pretrained(merged, safe_serialization=True)
         processor.save_pretrained(merged)
         del base, adapter
         print(f"Merged best LoRA adapter into {merged}", flush=True)

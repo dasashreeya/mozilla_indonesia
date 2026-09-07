@@ -821,11 +821,14 @@ def merge_adapters(run: str, labels: list[str] = None):
     checkpoints per run, so this merges the rest on CPU after the fact.
     """
     import json
+    import sys
     import torch
     from pathlib import Path
     from peft import PeftModel
     from qwen_asr import Qwen3ASRModel
     from transformers import AutoProcessor
+    sys.path.insert(0, "/workspace/scripts")
+    from train_recovery import sanitize_generation_config
     check_name(run, "run ID")
     directory = Path("/vol/runs") / run
     adapters = [d for d in sorted(directory.iterdir())
@@ -843,8 +846,9 @@ def merge_adapters(run: str, labels: list[str] = None):
             continue
         base = Qwen3ASRModel.from_pretrained("/vol/models/qwen3-asr-1.7b",
                dtype=torch.bfloat16, device_map="cpu", local_files_only=True).model
-        PeftModel.from_pretrained(base, str(adapter_dir)).merge_and_unload(
-            ).save_pretrained(target, safe_serialization=True)
+        merged_model = sanitize_generation_config(
+            PeftModel.from_pretrained(base, str(adapter_dir)).merge_and_unload())
+        merged_model.save_pretrained(target, safe_serialization=True)
         processor.save_pretrained(target)
         del base
         merged.append(str(target))
