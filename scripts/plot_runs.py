@@ -116,9 +116,25 @@ def language_split(groups, test_jav_share):
     return jav_wer, other_wer, fold, weighted
 
 
+def eval_paths(root):
+    """Every scored result on the volume, however it was produced.
+
+    eval_checkpoint.py writes to `evals/`, but a training run writes its own
+    per-checkpoint metrics under `runs/<arm>/<label>.metrics.json`. Reading only
+    the first leaves the arms off every figure -- the wave that produced them is
+    exactly what the figures are for -- so both are collected, and the run files
+    are labelled `<arm>/<label>` so a checkpoint can be traced to its run.
+    """
+    paths = sorted((root / "evals").glob("*.json"))
+    for run in sorted((root / "runs").glob("*")):
+        if run.is_dir():
+            paths.extend(sorted(run.glob("*.metrics.json")))
+    return paths
+
+
 def load_evals(root):
     rows = []
-    for path in sorted((root / "evals").glob("*.json")):
+    for path in eval_paths(root):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -126,7 +142,14 @@ def load_evals(root):
             continue
         groups = data.get("groups") or {}
         jav, other, fold, weighted = language_split(groups, ARGS.test_jav_share)
-        rows.append({"label": data.get("label") or path.stem, "path": path,
+        label = data.get("label") or path.stem
+        if path.parent.parent.name == "runs":
+            label = f"{path.parent.name}/{path.name.split('.')[0]}"
+        # Run-derived labels are "<arm>/baseline", so a startswith check misses
+        # them and the untrained model's ~0.50 stretches every axis.
+        if label.rsplit("/", 1)[-1].startswith("baseline"):
+            continue
+        rows.append({"label": label, "path": path,
                      "wer": data.get("wer"), "jav": jav, "other": other,
                      "fold": fold, "weighted": weighted, "groups": groups})
     return rows
@@ -280,13 +303,19 @@ def plot_sessions(rows, out, label=None):
     return out
 
 
-def plot_target(rows, out):
-    """One scale: every system, the leader, and the target. Position, not magnitude."""
+def plot_target(rows, out, limit=18):
+    """One scale: the best systems, the leader, and the target.
+
+    Capped: a wave leaves dozens of checkpoints, and a chart with seventy rows
+    is a table with extra steps. The question this figure answers -- how close is
+    the best work to the leader -- needs only the front of the field.
+    """
     points = [(r["label"], r["weighted"] + LOCAL_TO_PUBLIC) for r in rows
               if r["weighted"] is not None]
     if not points:
         return None
     points.sort(key=lambda p: p[1])
+    points = points[:limit]
     fig, ax = plt.subplots(figsize=(8.4, max(2.6, 0.36 * len(points) + 2.0)))
     ax.axvspan(0, PUBLIC_TARGET, color=GOOD, alpha=0.09, zorder=0)
     ax.axvline(PUBLIC_TARGET, color=GOOD, linewidth=1.4, zorder=2)
