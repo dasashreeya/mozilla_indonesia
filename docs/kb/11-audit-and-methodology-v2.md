@@ -43,6 +43,67 @@ what has provably never been tried.
 
 ---
 
+## 0. Which path to take
+
+Section 3 lays out five stages. **One person cannot execute all five in 18 days**,
+so this is the decision, made 2026-09-07 with all data available.
+
+**Take the depth path: one Qwen3-ASR-1.7B, trained properly and averaged. Not a
+model zoo.**
+
+Four reasons, in order of weight.
+
+**The external evidence says depth, not breadth.** All three Word Track winners of
+the closest comparable competition used **one** fine-tuned Qwen3-ASR-1.7B. None
+built a second architecture. 2nd place souped **eighteen runs of the same model**.
+We have never run that recipe once, never trained past ~550 optimizer steps at
+lr 1e-5, and never averaged two checkpoints.
+
+**The two-hour runtime kills the ensemble path.** Measured on the 509-clip fold at
+batch 8: Qwen 337 s, Whisper large-v3 **1,206 s** at its best config — 3.6x. The
+recorded Qwen full-run is ~23 minutes for 2,118 clips, so Whisper adds ~84
+minutes on top. That is ~107 minutes against a **120-minute hard limit**, before
+two model loads, with a 5-minute margin. A souped Qwen is a **single model at
+single-model cost**, and checkpoint averaging is the only combination technique
+that is free at inference.
+
+**The measured ensemble payoff is small.** The held-out selector over the existing
+pool was worth **-0.005**. Realistic combiners capture about an eighth of the
+oracle headroom. That does not pay for a 3-5 day CTC build plus the packaging
+risk of shipping two models in one ZIP.
+
+**The LM idea is separable from the CTC model.** N-best rescoring against a KenLM
+needs no new architecture — just n-best from Qwen and a scorer. Beam 4 on Qwen
+cost +0.0003 WER for no prohibitive time penalty, so n-best is affordable inside
+the limit. Keep the language model; drop the model that was going to carry it.
+
+### The path
+
+| Order | Do this | Section | Why it is on the list |
+| ---: | --- | --- | --- |
+| 1 | Stage 0 in full, **0.4 first** | [3.0](#30-stage-0--fix-the-instrument-no-training) | Nothing downstream is trustworthy until the measuring stick is |
+| 2 | `arm-lora` + `arm-prompt` + LR sweep + **soup** | [3.1](#31-stage-a--close-the-recipe-gap) | The recipe that was never run; one `modal run` |
+| 3 | East Java TTS + **style conditioning** | [3.2](#32-stage-b--get-the-javanese-data-and-condition-on-style) | The only genuinely new Javanese data; Javanese is 59% of the error |
+| 4 | Speed perturbation (`A4`) | [3.1](#31-stage-a--close-the-recipe-gap) | Data-starved, not over-fit — multiplies data and steps |
+| 5 | **KenLM n-best rescoring on Qwen** (`D1`) | [3.4](#34-stage-d--model-the-convention-explicitly) | The one bet. Gate it on the n-best oracle first |
+| 6 | **Final fit on 100% of labelled data** | [3.5](#35-stage-e--combine-then-fit-on-everything) | Free, certain, and never done — recovers 294 dev clips |
+
+### Deliberately not doing
+
+| Dropped | Why |
+| --- | --- |
+| CTC + w2v-BERT (`C2`) | 3-5 days of new engineering, and the LM value is reachable through `D1` without it |
+| Whisper fine-tune (`C1`) | Blows the two-hour budget in any ensemble that uses it |
+| VibeVoice (`C3`) | Runtime-blocked (F11) |
+| Conditional corrector (`D2`) | Depends on a diverse pool that the depth path does not build |
+| `arm-dur` repeats | Measured harmful (+0.0066), and the cause is understood |
+
+Revisit `C2` only if Stage A's soup and Stage B's data together fail to move the
+Javanese half below ~0.30 with a week still on the clock. At that point the
+depth path has been falsified and diversity is the remaining bet.
+
+---
+
 ## 1. Reframing: what the numbers actually say
 
 ### 1.1 The three targets
