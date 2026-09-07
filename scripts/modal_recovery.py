@@ -904,3 +904,57 @@ def report(repo_id: str = "", weights: str = "", minority_share: float = 0.49,
                             dry_run=dry_run)
     print(f"Backed up to {pushed.get('repo_id')}")
     return pushed
+
+
+package_image = (base.uv_pip_install("numpy==2.5.2")
+                 .add_local_dir(ROOT / "submission_src", "/workspace/submission_src")
+                 .add_local_file(ROOT / "scripts/build_submission.py",
+                                 "/workspace/scripts/build_submission.py"))
+
+
+@app.function(image=package_image, volumes={"/vol": volume}, timeout=2 * 3600,
+              cpu=8, memory=65536)
+def package(model: str, label: str = "submission", prompt: str = "",
+            language_routing: bool = True, batch_size: int = 24):
+    """Build the offline submission ZIP on the volume.
+
+    Packaged here rather than locally so the weights never round-trip: the model
+    is already on the volume, and only the finished archive comes down.
+
+    `prompt` must match what the packaged model trained with, byte for byte. The
+    fine-tune learns to emit `language <Tag><asr_text>...`, and qwen-asr builds
+    the decode prefix from the same string, so a mismatch silently costs the
+    conditioning the arm was trained for.
+    """
+    import json
+    import subprocess
+    from pathlib import Path
+    check_name(label, "label")
+    if ".." in model:
+        raise ValueError(f"Unsafe model path: {model}")
+    model_path = Path("/vol") / model
+    if not (model_path / "config.json").is_file():
+        raise FileNotFoundError(f"Not a packageable model directory: {model}")
+
+    # submission_src ships from the image read-only, so config.json is written
+    # into a working copy rather than edited in place.
+    source = Path("/tmp/submission_src")
+    if source.exists():
+        subprocess.run(["rm", "-rf", str(source)], check=True)
+    subprocess.run(["cp", "-r", "/workspace/submission_src", str(source)], check=True)
+    config = json.loads((source / "config.json").read_text())
+    config.update({"batch_size": batch_size, "language_routing": language_routing,
+                   "prompt": prompt})
+    (source / "config.json").write_text(json.dumps(config, indent=2) + "\n")
+
+    output = Path("/vol/artifacts") / f"{label}.zip"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["python", "/workspace/scripts/build_submission.py",
+                    "--source", str(source), "--model-dir", str(model_path),
+                    "--output", str(output)], check=True)
+    volume.commit()
+    receipt = json.loads(output.with_suffix(".zip.json").read_text())
+    receipt["config"] = config
+    receipt["model"] = model
+    print(json.dumps(receipt, indent=2))
+    return receipt
