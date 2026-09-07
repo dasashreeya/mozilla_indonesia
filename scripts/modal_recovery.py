@@ -1003,3 +1003,63 @@ def package(model: str, label: str = "submission", prompt: str = "",
     receipt["model"] = model
     print(json.dumps(receipt, indent=2))
     return receipt
+
+
+@app.local_entrypoint()
+def soup_pick(checkpoints: str, label: str = "soup-pick", dataset: str = "ds-base"):
+    """Average an explicitly chosen set of checkpoints, then score the average.
+
+    `checkpoints` is a comma-separated list of `run/label` pairs, e.g.
+    `arm-extb/epoch-2,arm-lora/epoch-2,arm-lr3/step-849`.
+
+    The automatic selection in `soup_best` ranks by fold WER, which on this wave
+    puts the four best checkpoints all inside one run and a few hundred steps of
+    each other. Averaging those is nearly a no-op: a soup pays only where the
+    members are wrong in different places. This entrypoint exists so the pool can
+    be chosen for method diversity -- one checkpoint per arm, full fine-tune
+    included -- and compared against the naive pick on the same held-out fold.
+    """
+    import json
+    picks = [c.strip() for c in checkpoints.split(",") if c.strip()]
+    if len(picks) < 2:
+        raise SystemExit("Averaging needs at least two checkpoints")
+    by_run = {}
+    for pick in picks:
+        run, _, name = pick.partition("/")
+        if not run or not name:
+            raise SystemExit(f"Expected run/label, got {pick!r}")
+        by_run.setdefault(run, []).append(name)
+    merge_args = list(by_run.items())
+    for (run, _), done in zip(merge_args, merge_adapters.starmap(merge_args)):
+        print(f"{run}: merged {len(done.get('merged', []))}", flush=True)
+    paths = resolve_checkpoints.remote(picks)
+    print("Averaging:\n  " + "\n  ".join(paths))
+    receipt = soup.remote(label=label, checkpoints=paths)
+    print(json.dumps(receipt, indent=2))
+    result = evaluate.remote(label=f"eval-{label}", model=f"soups/{label}",
+                             dataset=dataset, force_language=True)
+    jav, other, weighted = _language_wers(result)
+    print(f"\n{label}: fold {result['wer']:.4f}  javanese {jav}  code-switched {other}")
+    if weighted is not None:
+        print(f"test-weighted {weighted:.4f}  forecast public {weighted + 0.052:.4f}")
+    return {"soup": receipt, "eval": result}
+
+
+@app.function(image=stage_image, volumes={"/vol": volume}, timeout=900, cpu=2, memory=4096)
+def resolve_checkpoints(picks: list[str]):
+    """Turn `run/label` pairs into volume paths that hold a loadable model."""
+    from pathlib import Path
+    paths = []
+    for pick in picks:
+        run, _, name = pick.partition("/")
+        check_name(run, "run ID")
+        check_name(name, "checkpoint label")
+        directory = Path("/vol/runs") / run
+        for prefix in ("merged", "weights", "best"):
+            candidate = directory / f"{prefix}-{name}"
+            if candidate.is_dir() and _is_full_model(candidate):
+                paths.append(f"runs/{run}/{prefix}-{name}")
+                break
+        else:
+            raise FileNotFoundError(f"No loadable model for {pick}")
+    return paths
