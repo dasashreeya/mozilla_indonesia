@@ -181,3 +181,30 @@ class UploadAliasTests(unittest.TestCase):
             alias = REMOTE_ALIAS.get(directory.name, directory.name)
             with self.subTest(directory=directory.name):
                 self.assertIn(alias, SOURCES)
+
+
+class AdapterLabelTests(unittest.TestCase):
+    def setUp(self):
+        from scripts.modal_recovery import select_adapter_labels
+        self.select = select_adapter_labels
+        self.dirs = ["weights-epoch-1", "weights-epoch-2", "best-epoch-2",
+                     "weights-step-849", "best-step-849", "merged-epoch-2"]
+
+    def test_bare_label_matches_the_prefixed_directory(self):
+        # The regression: callers pass "epoch-2", disk holds "weights-epoch-2".
+        self.assertEqual(self.select(self.dirs, ["epoch-2"]), {"epoch-2": "best-epoch-2"})
+
+    def test_one_directory_per_label(self):
+        # weights-X and best-X are the same checkpoint saved twice.
+        chosen = self.select(self.dirs, ["epoch-2", "step-849"])
+        self.assertEqual(sorted(chosen), ["epoch-2", "step-849"])
+
+    def test_no_labels_selects_every_checkpoint(self):
+        self.assertEqual(sorted(self.select(self.dirs)), ["epoch-1", "epoch-2", "step-849"])
+
+    def test_unrecognised_directories_are_ignored(self):
+        chosen = self.select(["checkpoint-1200", "audio", "random_dir"], None)
+        self.assertEqual(chosen, {})
+
+    def test_a_label_that_does_not_exist_returns_nothing(self):
+        self.assertEqual(self.select(self.dirs, ["epoch-9"]), {})

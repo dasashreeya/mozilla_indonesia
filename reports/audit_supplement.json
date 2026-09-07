@@ -64,7 +64,7 @@
     "development_clips": 372,
     "review_threshold": 0.65,
     "above_review_threshold": 0,
-    "best_match_score": 0.4856855273246765,
+    "best_match_score": 0.4856855571269989,
     "limitation": "Whole-clip candidate screen, uncalibrated on this corpus. Does not rule out shorter excerpts, changed speed, splices, or speaker overlap."
   },
   "acoustic_positive_control_passes": 5,

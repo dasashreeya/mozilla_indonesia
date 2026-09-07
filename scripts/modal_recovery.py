@@ -799,6 +799,30 @@ def soup_best(label: str = "soup-v1", runs: str = "", top: int = 4,
     return {"soup": receipt, "eval": result}
 
 
+def select_adapter_labels(directory_names, labels=None):
+    """Map checkpoint labels onto the adapter directories that hold them.
+
+    Callers name checkpoints the way the metrics do -- "epoch-2", "step-849" --
+    while the directories on disk carry a prefix: "weights-epoch-2",
+    "best-epoch-2". Comparing the bare label against the directory name matches
+    nothing and merges nothing, and because an empty merge is not an error it
+    fails silently; that cost a full soup run once already.
+
+    weights-X and best-X are the same checkpoint saved twice, so the result is
+    keyed by label and keeps one directory per label.
+    """
+    wanted = set(labels or ())
+    chosen = {}
+    for name in sorted(directory_names):
+        prefix, _, label = name.partition("-")
+        if prefix not in ("weights", "best", "merged") or not label:
+            continue
+        if wanted and label not in wanted:
+            continue
+        chosen.setdefault(label, name)
+    return chosen
+
+
 def _is_full_model(path):
     """A directory a Qwen3ASRModel can be loaded from, as opposed to an adapter.
 
@@ -831,16 +855,22 @@ def merge_adapters(run: str, labels: list[str] = None):
     from train_recovery import sanitize_generation_config
     check_name(run, "run ID")
     directory = Path("/vol/runs") / run
-    adapters = [d for d in sorted(directory.iterdir())
-                if d.is_dir() and (d / "adapter_config.json").is_file()
-                and (not labels or d.name in labels)]
+    # `labels` are bare checkpoint labels ("epoch-2", "step-849"); the directories
+    # on disk carry a prefix ("weights-epoch-2", "best-epoch-2"). Matching the
+    # bare label against the directory name finds nothing, which is a silent
+    # no-op rather than an error -- so match on the suffix and dedupe by target,
+    # since weights-X and best-X are the same checkpoint under two names.
+    names = [d.name for d in directory.iterdir()
+             if d.is_dir() and (d / "adapter_config.json").is_file()]
+    adapters = [directory / n for n in select_adapter_labels(names, labels).values()]
     if not adapters:
-        return {"run": run, "merged": [], "note": "no adapters; nothing to merge"}
+        return {"run": run, "merged": [], "requested": sorted(wanted),
+                "note": "no matching adapters; full fine-tune runs need no merge"}
     processor = AutoProcessor.from_pretrained("/vol/models/qwen3-asr-1.7b",
                                               local_files_only=True)
     merged = []
     for adapter_dir in adapters:
-        target = directory / f"merged-{adapter_dir.name.split('-', 1)[1]}"
+        target = directory / f"merged-{adapter_dir.name.partition('-')[2]}"
         if _is_full_model(target):
             merged.append(str(target))
             continue
