@@ -20,8 +20,14 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Callable, Dict, List, Mapping, Sequence
+from typing import Callable, Dict, List, Mapping, Optional, Sequence
 
+
+# Competition label -> the target-side tag the fine-tune was trained to emit.
+# test_metadata.csv carries this column, and roughly half the test set is
+# Javanese-only while development contains none, so routing on it is the one
+# piece of per-clip information the manifest gives away for free.
+LANGUAGE_TAGS = {"jav": "Jav", "ind": "Ind", "javind": "Javind"}
 
 SOURCE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("MDC_DATA_DIR", "/code_execution/data"))
@@ -113,7 +119,23 @@ def decode_all(audio_paths: Sequence[str], batch_size: int,
     return predictions
 
 
-def qwen_decoder(config: Mapping[str, object]) -> Callable[[Sequence[str]], List[str]]:
+def register_language_tags() -> List[str]:
+    """Allow the fine-tune's own tags to be forced at decode time.
+
+    ``validate_language`` rejects anything outside a module-level list, and
+    Javanese is not in it. The list is extended in place, so every module that
+    imported the validator sees the addition.
+    """
+    from qwen_asr.inference import utils
+
+    missing = [tag for tag in LANGUAGE_TAGS.values() if tag not in utils.SUPPORTED_LANGUAGES]
+    utils.SUPPORTED_LANGUAGES.extend(missing)
+    return missing
+
+
+def qwen_decoder(config: Mapping[str, object],
+                 languages: Optional[Mapping[str, str]] = None
+                 ) -> Callable[[Sequence[str]], List[str]]:
     import torch
     from qwen_asr import Qwen3ASRModel
 
@@ -125,9 +147,20 @@ def qwen_decoder(config: Mapping[str, object]) -> Callable[[Sequence[str]], List
         max_inference_batch_size=int(config["batch_size"]),
         max_new_tokens=int(config["max_new_tokens"]),
     )
+    prompt = str(config.get("prompt") or "")
+    routing = bool(config.get("language_routing")) and bool(languages)
+    if routing:
+        print(f"Language routing on; registered tags: {register_language_tags()}", flush=True)
 
     def decode(paths: Sequence[str]) -> List[str]:
-        results = model.transcribe(audio=list(paths), language=config.get("force_language"))
+        if routing:
+            # An unknown or missing label decodes unforced rather than guessing:
+            # qwen-asr accepts None per item inside the batch.
+            forced = [LANGUAGE_TAGS.get(languages.get(path, ""), None) for path in paths]
+        else:
+            forced = config.get("force_language")
+        results = model.transcribe(audio=list(paths), context=[prompt] * len(paths),
+                                   language=forced)
         return [clean(result.text) for result in results]
 
     return decode
@@ -207,8 +240,12 @@ def main() -> None:
     print(f"Wrote placeholder submission for {len(rows)} clips", flush=True)
 
     audio_paths = [str(DATA_DIR / "clips" / row["audio_filename"]) for row in rows]
+    languages = {path: (row.get("language") or "").strip()
+                 for path, row in zip(audio_paths, rows)}
+    labelled = sum(1 for value in languages.values() if value in LANGUAGE_TAGS)
+    print(f"Manifest carries {labelled}/{len(rows)} recognised language labels", flush=True)
     if backend == "qwen3_asr_transformers":
-        decode_batch = qwen_decoder(config)
+        decode_batch = qwen_decoder(config, languages)
         batch_size = int(config["batch_size"])
     else:
         decode_batch = whisper_decoder(config)

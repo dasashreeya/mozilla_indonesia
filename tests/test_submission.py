@@ -119,5 +119,22 @@ class HardeningTests(unittest.TestCase):
         )
 
 
+
+
+class LanguageRoutingTests(unittest.TestCase):
+    def test_tags_cover_every_competition_label_and_survive_the_normalizer(self):
+        self.assertEqual(set(submission.LANGUAGE_TAGS), {"jav", "ind", "javind"})
+        for tag in submission.LANGUAGE_TAGS.values():
+            # qwen-asr normalizes a forced language to first-upper/rest-lower; a
+            # tag that does not survive that would not match the trained prefix.
+            self.assertEqual(tag[:1].upper() + tag[1:].lower(), tag)
+
+    def test_unknown_or_missing_labels_decode_unforced_instead_of_guessing(self):
+        languages = {"a.mp3": "jav", "b.mp3": "javind", "c.mp3": "", "d.mp3": "xx"}
+        forced = [submission.LANGUAGE_TAGS.get(languages.get(p, ""), None)
+                  for p in ["a.mp3", "b.mp3", "c.mp3", "d.mp3", "missing.mp3"]]
+        self.assertEqual(forced, ["Jav", "Javind", None, None, None])
+
+
 if __name__ == "__main__":
     unittest.main()

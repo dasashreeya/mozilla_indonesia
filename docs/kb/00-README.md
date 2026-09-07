@@ -60,6 +60,11 @@ measurement shows is worth up to 6.4 WER points.
 | [02-measured-findings](02-measured-findings.md) | Locally measured facts: scorer verification, error decomposition, the orthography headroom, statistical resolution | when deciding where to spend effort |
 | [03-next-actions](03-next-actions.md) | Prioritised plan to the 2026-09-25 deadline, with the submission budget | at the start of every working session |
 | [04-language-composition](04-language-composition.md) | **Why the leaderboard score is what it is.** Javanese vs code-switched WER, the local-to-leaderboard calibration, and three retired hypotheses | before planning any experiment |
+| [05-architecture-and-arms](05-architecture-and-arms.md) | **The base-model question, measured in domain.** Qwen against Whisper on the 509-clip fold, the retired beam-search hypothesis, the free gain from language conditioning, and the design of the ten training arms | before proposing a different base model, a decoding change, or a new arm |
+| [06-evidence-audit](06-evidence-audit.md), [07-route-to-target](07-route-to-target.md), [08-target-strategy-summary](08-target-strategy-summary.md) | Independent audit of the evidence, the route toward the target, and the recommended execution order | when planning the next investment |
+| [09-cpu-viability-results](09-cpu-viability-results.md) | Independently implemented selector and audio-side SNR measurement, CPU only | before assuming an ensemble or noise gain |
+| [10-cpu-analysis-and-verdict](10-cpu-analysis-and-verdict.md) | **The verdict on <0.20.** Word-level oracle ceiling, the orthography question settled, error taxonomy, two dead correction strategies, the annotation floor, session 35, and the model survey | before proposing any post-processing, ensemble or base-model change |
+| [PROBLEM_BRIEF](PROBLEM_BRIEF.md) | Portable, self-contained statement of the problem and everything ruled out | when seeking an outside opinion |
 | [research/winning-solutions.md](research/winning-solutions.md) | **The proven recipe.** Pasketti winners' exact models, LoRA hyperparameters, augmentation, averaging strategy | before designing any training run |
 | [research/official-competition-spec.md](research/official-competition-spec.md) | Verified official facts: audio format, metadata columns, runtime versions, limits, rules | when a factual assumption matters |
 | [research/mdc-data-catalog.md](research/mdc-data-catalog.md) | Every usable MDC dataset with licence, including ~3.5 GB of Javanese TTS corpora | when planning the data mixture |
@@ -75,11 +80,14 @@ Supporting documents that predate this knowledge base:
 
 | | |
 |---|---|
-| Best known full-test score | **0.32590**, rank #37 (Jember fine-tune, 2026-09-06) |
+| Best known full-test score | **0.32590**, rank #37→#38 (Jember fine-tune, 2026-09-06) |
+| Hard ceiling on combining what we own | **0.1641 word-level oracle** over nine saved systems, against a 0.148 target. No selector, ensemble or corrector built on current models can reach <0.20 — see [10](10-cpu-analysis-and-verdict.md) |
+| Best validated improvement | **≈0.2631–0.2638 local (−0.005)** from a held-out-validated multi-model selector, needing no new training |
 | Previous | 0.47555 (base Qwen3-ASR-1.7B, zero-shot) |
 | Public leader | 0.2196 |
 | Deadline | 2026-09-25 00:00 UTC |
 | Submission limit | **3 per 7 days, per person.** Smoke tests, cancelled and failed jobs do **not** count — run a smoke submission before every full one. |
+| Base model | **Qwen3-ASR-1.7B, measured in domain 2026-09-06.** Whisper large-v3 is 0.4503 at best against Qwen's 0.4302, ties on Javanese despite its native `jw` token, and is 8.9 points worse on code-switched speech. See [05-architecture-and-arms](05-architecture-and-arms.md) |
 | **Critical path** | **Javanese-only WER, currently 0.3368 on held-out sessions.** ~49% of the test set is Javanese and it carries most of the remaining error. See [04-language-composition](04-language-composition.md). |
 | Forecasting rule | `test ≈ mixed-holdout WER + 0.052`. A development-only fold understates test by ~0.21 and must never be used as a forecast. |
 | Open question for organizers | Jember is CC-BY-NC-SA-4.0. Is an NC-licensed training corpus compatible with the winner obligation that supporting software allow free commercial use? Ask on the forum before depending on it. |
@@ -94,6 +102,20 @@ Supporting documents that predate this knowledge base:
   the only artifact with a known full-test score.
 
 ## Changelog
+
+* **2026-09-06 (later)** — Ten single-factor training arms and six decode-only arms
+  produced **no improvement over the baseline**; the published winning recipe
+  (SpecAugment, beam search, LoRA) is null-to-negative on this task. CPU analysis
+  then established the decisive bound: a word-level oracle over all nine saved
+  systems reaches only **0.1641**, above the 0.148 target, so the entire
+  combination family is capped. The Javanese orthography convention was verified
+  correct (a ±0.05 risk retired), spelling-correction maps and vocabulary
+  constraints were measured harmful, the annotation floor was bounded at
+  0.02–0.05, and session 35 was identified as a timestamp misalignment inflating
+  the measuring stick by ~0.012. A full model survey found only two current ASR
+  models supporting Javanese at all. See
+  [05-architecture-and-arms](05-architecture-and-arms.md) and
+  [10-cpu-analysis-and-verdict](10-cpu-analysis-and-verdict.md).
 
 * **2026-09-06** — Public score 0.47555 → **0.32590** (rank #37). Root cause identified:
   the test set is ~49% Javanese-only and development contains none, so every prior
