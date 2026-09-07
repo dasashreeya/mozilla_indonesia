@@ -1,0 +1,620 @@
+<title>The Oracle Sits on the Leader</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#f5f7f5;
+  --surface:#ffffff;
+  --surface-sunk:#eef1ee;
+  --ink:#151b19;
+  --ink-soft:#3d4744;
+  --muted:#63706c;
+  --rule:#dde3e0;
+  --rule-strong:#c3ccc8;
+  --accent:#0d6459;
+  --accent-soft:#e0efec;
+  --flag:#9c5a12;
+  --flag-soft:#f7ecdd;
+  --bad:#98292b;
+  --good:#2c6740;
+  --shadow:0 1px 2px rgba(21,27,25,.06),0 8px 24px -16px rgba(21,27,25,.28);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0e1312;
+    --surface:#161d1b;
+    --surface-sunk:#111716;
+    --ink:#e7ece9;
+    --ink-soft:#bcc7c3;
+    --muted:#8b9994;
+    --rule:#26302d;
+    --rule-strong:#3a4643;
+    --accent:#5cc3b1;
+    --accent-soft:#12302c;
+    --flag:#d69a55;
+    --flag-soft:#2e2418;
+    --bad:#e28285;
+    --good:#6fb587;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0e1312;
+  --surface:#161d1b;
+  --surface-sunk:#111716;
+  --ink:#e7ece9;
+  --ink-soft:#bcc7c3;
+  --muted:#8b9994;
+  --rule:#26302d;
+  --rule-strong:#3a4643;
+  --accent:#5cc3b1;
+  --accent-soft:#12302c;
+  --flag:#d69a55;
+  --flag-soft:#2e2418;
+  --bad:#e28285;
+  --good:#6fb587;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.7);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:940px;margin:0 auto;padding:0 28px 96px}
+main{display:flex;flex-direction:column;gap:52px}
+
+/* ---------- masthead ---------- */
+.masthead{
+  border-bottom:2px solid var(--ink);
+  padding:56px 0 22px;
+  margin-bottom:44px;
+}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);margin:0 0 18px;
+  display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;
+}
+.eyebrow span:not(:first-child)::before{content:"/";color:var(--rule-strong);margin-right:14px}
+h1{
+  font-family:Spectral,Georgia,"Times New Roman",serif;
+  font-weight:600;font-size:clamp(2.1rem,5.6vw,3.3rem);
+  line-height:1.06;letter-spacing:-.018em;
+  margin:0 0 16px;text-wrap:balance;
+}
+.standfirst{
+  font-family:Spectral,Georgia,serif;font-size:1.2rem;line-height:1.52;
+  color:var(--ink-soft);max-width:62ch;margin:0;
+}
+.standfirst em{color:var(--ink);font-style:italic}
+
+/* ---------- generic type ---------- */
+h2{
+  font-family:Spectral,Georgia,serif;font-weight:600;
+  font-size:1.72rem;line-height:1.15;letter-spacing:-.012em;
+  margin:0 0 6px;text-wrap:balance;
+}
+h3{
+  font-family:"IBM Plex Sans",sans-serif;font-weight:600;
+  font-size:1.02rem;line-height:1.35;margin:0 0 6px;letter-spacing:-.004em;
+}
+p{margin:0 0 14px;max-width:68ch}
+p:last-child{margin-bottom:0}
+section > p, section > .prose{max-width:68ch}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+a:hover{border-bottom-color:var(--accent)}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em}
+code{background:var(--surface-sunk);padding:.1em .34em;border-radius:3px}
+strong{font-weight:600}
+.num{font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",ui-monospace,monospace}
+
+.sec-head{display:flex;flex-direction:column;gap:2px;margin-bottom:22px;
+  border-top:1px solid var(--rule);padding-top:20px}
+.sec-kicker{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted);
+}
+
+/* ---------- the scale figure ---------- */
+.figure{
+  background:var(--surface);border:1px solid var(--rule);border-radius:6px;
+  padding:26px 24px 18px;box-shadow:var(--shadow);
+}
+.figure-title{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted);margin:0 0 4px;
+}
+.figure-sub{font-size:.94rem;color:var(--ink-soft);margin:0 0 12px;max-width:64ch}
+.scroller{overflow-x:auto}
+svg{display:block;min-width:640px;width:100%;height:auto}
+.ax-line{stroke:var(--rule-strong);stroke-width:1.25}
+.ax-tick{stroke:var(--rule-strong);stroke-width:1}
+.ax-label{fill:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:11px}
+.stem{stroke:var(--rule-strong);stroke-width:1;stroke-dasharray:2 3}
+.stem-live{stroke:var(--accent);stroke-width:1.5;stroke-dasharray:none}
+.dot{fill:var(--ink)}
+.dot-accent{fill:var(--accent)}
+.dot-flag{fill:var(--flag)}
+.lbl-val{fill:var(--ink);font-family:"IBM Plex Mono",monospace;font-size:15px;font-weight:500}
+.lbl-val-accent{fill:var(--accent)}
+.lbl-name{fill:var(--muted);font-family:"IBM Plex Sans",sans-serif;font-size:11.5px}
+.bracket{stroke:var(--flag);stroke-width:1.25;fill:none}
+.bracket-lbl{fill:var(--flag);font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:500}
+.band{fill:var(--accent-soft)}
+.band-lbl{fill:var(--accent);font-family:"IBM Plex Sans",sans-serif;font-size:11.5px}
+
+.figure-note{
+  font-size:.86rem;color:var(--muted);margin:14px 0 0;padding-top:12px;
+  border-top:1px solid var(--rule);max-width:70ch;
+}
+
+/* ---------- verdict strip ---------- */
+.verdict{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));
+  gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:6px;
+  overflow:hidden;margin-top:22px;
+}
+.verdict div{background:var(--surface);padding:15px 17px}
+.verdict dt{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--muted);margin:0 0 5px;
+}
+.verdict dd{margin:0;font-size:1.42rem;font-weight:500;letter-spacing:-.02em;
+  font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.verdict dd small{display:block;font-family:"IBM Plex Sans",sans-serif;font-size:.78rem;
+  font-weight:400;color:var(--muted);letter-spacing:0;margin-top:3px;line-height:1.4}
+
+/* ---------- tables ---------- */
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:10px 14px 10px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);font-weight:400;
+  border-bottom:1px solid var(--rule-strong);padding-bottom:8px;
+}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;
+  font-family:"IBM Plex Mono",monospace;padding-right:0}
+tbody tr:last-child td{border-bottom:none}
+td .arm{font-family:"IBM Plex Mono",monospace;font-size:.92em;font-weight:500}
+
+.chip{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  letter-spacing:.06em;text-transform:uppercase;padding:2.5px 7px;border-radius:3px;
+  white-space:nowrap;
+}
+.chip-flag{background:var(--flag-soft);color:var(--flag);border:1px solid color-mix(in srgb,var(--flag) 30%,transparent)}
+.chip-dead{background:var(--surface-sunk);color:var(--muted);border:1px solid var(--rule-strong)}
+
+/* ---------- finding blocks ---------- */
+.findings{display:flex;flex-direction:column;gap:0;
+  border-top:1px solid var(--rule-strong)}
+.finding{
+  display:grid;grid-template-columns:38px 1fr;gap:0 18px;
+  padding:20px 0;border-bottom:1px solid var(--rule);
+}
+.finding .rank{
+  font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--accent);
+  font-weight:500;padding-top:2px;
+}
+.finding p{margin:0;font-size:.94rem;color:var(--ink-soft)}
+.finding p + p{margin-top:9px}
+.finding p strong{color:var(--ink)}
+
+/* ---------- stages ---------- */
+.stages{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--rule-strong)}
+.stage{
+  display:grid;grid-template-columns:64px 1fr;gap:0 20px;
+  padding:22px 0;border-bottom:1px solid var(--rule);align-items:start;
+}
+.stage-id{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;
+  color:var(--surface);background:var(--accent);border-radius:3px;
+  padding:3px 0;text-align:center;letter-spacing:.05em;margin-top:2px;
+}
+.stage-id.q{background:var(--ink)}
+.stage h3{margin-bottom:5px}
+.stage p{font-size:.94rem;color:var(--ink-soft);margin:0}
+.stage p + p{margin-top:8px}
+.stage ul{margin:9px 0 0;padding-left:17px;font-size:.92rem;color:var(--ink-soft)}
+.stage li{margin-bottom:5px}
+.stage li:last-child{margin-bottom:0}
+.stage li::marker{color:var(--rule-strong)}
+
+/* ---------- convention callout ---------- */
+.conv{
+  background:var(--surface-sunk);border-left:3px solid var(--accent);
+  padding:18px 20px;border-radius:0 5px 5px 0;
+}
+.conv h3{margin-bottom:9px}
+.conv-pairs{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));
+  gap:7px 20px;font-family:"IBM Plex Mono",monospace;font-size:.85rem;
+  margin:12px 0 0;color:var(--ink-soft);
+}
+.conv-pairs span{white-space:nowrap;font-variant-numeric:tabular-nums}
+.conv-pairs b{color:var(--muted);font-weight:400}
+.conv-pairs .to{color:var(--bad)}
+.conv p{font-size:.92rem;color:var(--ink-soft);max-width:66ch}
+
+/* ---------- odds ---------- */
+.odds{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;margin-top:6px}
+.odd{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px 20px}
+.odd .q{font-size:.94rem;font-weight:600;margin:0 0 10px}
+.odd .bar{height:6px;background:var(--surface-sunk);border-radius:3px;overflow:hidden;margin-bottom:9px}
+.odd .bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.odd .pct{font-family:"IBM Plex Mono",monospace;font-size:1.15rem;font-weight:500;
+  font-variant-numeric:tabular-nums}
+.odd .cap{font-size:.84rem;color:var(--muted);margin:4px 0 0;line-height:1.45}
+
+/* ---------- standing findings ---------- */
+.standing{
+  columns:2;column-gap:36px;font-size:.9rem;color:var(--ink-soft);
+  margin:0;padding-left:17px;
+}
+.standing li{margin-bottom:7px;break-inside:avoid}
+.standing li::marker{color:var(--rule-strong)}
+
+footer{
+  margin-top:66px;padding-top:20px;border-top:2px solid var(--ink);
+  font-size:.84rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 22px;
+  font-family:"IBM Plex Mono",monospace;
+}
+
+@media (max-width:640px){
+  .wrap{padding:0 18px 64px}
+  .standing{columns:1}
+  .finding{grid-template-columns:26px 1fr;gap:0 12px}
+  .stage{grid-template-columns:54px 1fr;gap:0 14px}
+  .verdict{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+<header class="masthead">
+  <p class="eyebrow"><span>Lost in Transcription &mdash; Indonesian&ndash;Javanese</span><span>Audit, 7 Sept 2026</span><span>18 days to deadline</span></p>
+  <h1>The oracle sits on the leader</h1>
+  <p class="standfirst">A perfect combination of the nine systems this project already owns would score <span class="num">0.216</span> on the public test set. The leader is at <span class="num">0.2196</span>. First place is not beyond us &mdash; it is <em>exactly</em> where our ceiling already is, which means the work is better base systems, not cleverer combination. And five of the twelve training arms that were designed to find them have never been run.</p>
+</header>
+
+<main>
+
+<section>
+  <div class="figure">
+    <p class="figure-title">Public test WER &mdash; lower is better</p>
+    <p class="figure-sub">Every value on this axis is a real measurement except the oracle, which is the 0.1641 word-level oracle mapped through the project's recorded local-to-public offset of +0.052.</p>
+    <div class="scroller">
+      <svg viewBox="0 0 960 258" role="img" aria-label="A WER scale from 0.14 to 0.50 showing the target at 0.20, the nine-system oracle at 0.2161, the public leader at 0.2196, our current submission at 0.3259, and the zero-shot base model at 0.4755.">
+        <!-- target band -->
+        <rect class="band" x="60" y="176" width="140" height="18"></rect>
+        <text class="band-lbl" x="63" y="212">target zone &lt; 0.20</text>
+
+        <!-- axis -->
+        <line class="ax-line" x1="60" y1="176" x2="900" y2="176"></line>
+        <g class="ax-tick">
+          <line x1="83.3" y1="176" x2="83.3" y2="182"></line>
+          <line x1="200" y1="176" x2="200" y2="184"></line>
+          <line x1="316.7" y1="176" x2="316.7" y2="182"></line>
+          <line x1="433.3" y1="176" x2="433.3" y2="184"></line>
+          <line x1="550" y1="176" x2="550" y2="182"></line>
+          <line x1="666.7" y1="176" x2="666.7" y2="184"></line>
+          <line x1="783.3" y1="176" x2="783.3" y2="182"></line>
+          <line x1="900" y1="176" x2="900" y2="184"></line>
+        </g>
+        <g class="ax-label" text-anchor="middle">
+          <text x="200" y="199">0.20</text>
+          <text x="433.3" y="199">0.30</text>
+          <text x="666.7" y="199">0.40</text>
+          <text x="900" y="199">0.50</text>
+        </g>
+
+        <!-- base model 0.4755 -->
+        <line class="stem" x1="842.8" y1="176" x2="842.8" y2="62"></line>
+        <circle class="dot" cx="842.8" cy="176" r="4.5"></circle>
+        <text class="lbl-val" x="842.8" y="52" text-anchor="middle">0.4755</text>
+        <text class="lbl-name" x="842.8" y="68" text-anchor="middle">base Qwen3-ASR, zero-shot</text>
+
+        <!-- current 0.3259 -->
+        <line class="stem-live" x1="493.8" y1="176" x2="493.8" y2="62"></line>
+        <circle class="dot-accent" cx="493.8" cy="176" r="5.5"></circle>
+        <text class="lbl-val lbl-val-accent" x="493.8" y="52" text-anchor="middle">0.3259</text>
+        <text class="lbl-name" x="493.8" y="68" text-anchor="middle">where we are &mdash; rank 37</text>
+
+        <!-- oracle + leader cluster -->
+        <line class="stem" x1="237.6" y1="176" x2="237.6" y2="130"></line>
+        <line class="stem" x1="245.7" y1="176" x2="245.7" y2="130"></line>
+        <circle class="dot-flag" cx="237.6" cy="176" r="4"></circle>
+        <circle class="dot" cx="245.7" cy="176" r="4"></circle>
+        <path class="bracket" d="M237.6 128 L237.6 120 L245.7 120 L245.7 128"></path>
+        <path class="bracket" d="M241.6 120 L241.6 112"></path>
+        <text class="bracket-lbl" x="256" y="107">0.0035 apart</text>
+        <text class="lbl-val" x="256" y="86" text-anchor="start">0.2196</text>
+        <text class="lbl-name" x="308" y="86" text-anchor="start">the public leader</text>
+        <text class="lbl-val" x="256" y="64" text-anchor="start" fill="currentColor" style="fill:var(--flag)">0.2161</text>
+        <text class="lbl-name" x="308" y="64" text-anchor="start">our nine-system oracle</text>
+
+        <!-- target 0.20 -->
+        <circle class="dot" cx="200" cy="176" r="3"></circle>
+        <text class="lbl-name" x="196" y="152" text-anchor="end">0.20</text>
+        <line class="stem" x1="200" y1="176" x2="200" y2="158"></line>
+
+        <text class="ax-label" x="60" y="238">Corpus WER, MDC normaliser. 2,118 hidden test clips.</text>
+      </svg>
+    </div>
+    <p class="figure-note">The gap between a <em>perfect</em> recombination of everything we own and first place is 0.0035 &mdash; roughly a fifth of the smallest difference the 509-clip validation fold can even resolve. That is the whole strategic picture in one number.</p>
+  </div>
+
+  <dl class="verdict">
+    <div><dt>Javanese half</dt><dd>0.3368<small>~49% of the test set, and 59% of all remaining error</small></dd></div>
+    <div><dt>Code-switched half</dt><dd>0.2266<small>the half every measurement before 6 Sept covered</small></dd></div>
+    <div><dt>Javanese training audio</dt><dd>10.96 h<small>9.97 h Jember plus 0.99 h Common Voice. Total, across every arm.</small></dd></div>
+    <div><dt>Arms with no result</dt><dd>5 / 12<small>including the verbatim first-place reference recipe</small></dd></div>
+  </dl>
+</section>
+
+<section>
+  <div class="sec-head">
+    <p class="sec-kicker">The core finding</p>
+    <h2>The recipe that was declared not to transfer was never run</h2>
+  </div>
+  <p><code>scripts/modal_recovery.py:386</code> defines twelve Wave&nbsp;1 training arms. <code>experiments/results.csv</code> and the knowledge base report seven. The five with no result anywhere are the ones that mattered most &mdash; and every one of them is already coded, tested and launchable.</p>
+  <div class="scroller" style="margin-top:20px">
+  <table>
+    <thead><tr><th>Arm</th><th>What it tests</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="arm">arm-lora</span></td>
+        <td>The verbatim 1st-place Pasketti recipe: LoRA r=16 &alpha;=32 at lr&nbsp;<span class="num">1e-4</span>, 3 epochs, SpecAugment, keep every checkpoint</td>
+        <td><span class="chip chip-flag">never run</span></td>
+      </tr>
+      <tr>
+        <td><span class="arm">arm-prompt</span></td>
+        <td>Whether the context prompt worth <span class="num">&minus;0.025</span> before training survives fine-tuning</td>
+        <td><span class="chip chip-flag">never run</span></td>
+      </tr>
+      <tr>
+        <td><span class="arm">arm-extra</span></td>
+        <td>External data alone, unconfounded &mdash; preempted at step 94 of 636</td>
+        <td><span class="chip chip-dead">died</span></td>
+      </tr>
+      <tr>
+        <td><span class="arm">arm-javtts</span></td>
+        <td>East Javanese TTS from Lumajang, which borders Jember</td>
+        <td><span class="chip chip-flag">data not fetched</span></td>
+      </tr>
+      <tr>
+        <td><span class="arm">arm-alldata</span></td>
+        <td>Both external corpora together</td>
+        <td><span class="chip chip-flag">data not fetched</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="margin-top:20px">Every arm that <em>was</em> reported ran the <code>train_recovery.py</code> defaults instead: full fine-tune, lr <span class="num">1e-5</span>, one epoch, cosine. So the seven reported arms varied <strong>data</strong>, not <strong>method</strong> &mdash; and the method was then declared not to transfer, on the strength of SpecAugment (one component of it) and beam search (not part of it at all).</p>
+</section>
+
+<section>
+  <div class="sec-head">
+    <p class="sec-kicker">Ordered by how much each changes what to do next</p>
+    <h2>Six more things the audit found</h2>
+  </div>
+  <div class="findings">
+    <div class="finding">
+      <p class="rank">01</p>
+      <div>
+        <h3>The local-to-public calibration pairs two different models</h3>
+        <p>The <span class="num">+0.052</span> offset comes from a table pairing local <span class="num">0.2685</span> with public <span class="num">0.32590</span>. Those are <strong>not the same run</strong>: 0.2685 is <span class="mono">qwen-jav-holdout-v1</span> on the <span class="mono">recovery-jav1</span> manifest with 20 sessions held out; 0.32590 was submitted from <span class="mono">qwen-recovery-v2-fold5</span>, which trained on all 208.</p>
+        <p>Every target since inherits that offset, including the <span class="num">0.148</span> the &ldquo;not reachable&rdquo; verdict is measured against. One decode pass fixes it.</p>
+      </div>
+    </div>
+    <div class="finding">
+      <p class="rank">02</p>
+      <div>
+        <h3>The validation fold is weighted wrong for the task</h3>
+        <p>The holdout is <span class="num">37.96%</span> Javanese by reference words. The test set is about <span class="num">49%</span>. Reweight to the test composition and base Qwen's local score predicts its public score to within <span class="num">0.0006</span> &mdash; a far better instrument than the one in use.</p>
+      </div>
+    </div>
+    <div class="finding">
+      <p class="rank">03</p>
+      <div>
+        <h3>SpecAugment coming out null was read backwards</h3>
+        <p>SpecAugment is a <em>regulariser</em>. It does nothing when a model is not overfitting. Ten hours of audio, ~2,300 windows, ~550 optimizer steps per epoch, a 1.7B model: this system is <strong>data-starved, not over-fit</strong>. The right response is more and more varied data &mdash; speed perturbation, the standard low-resource multiplier, has never been tried.</p>
+      </div>
+    </div>
+    <div class="finding">
+      <p class="rank">04</p>
+      <div>
+        <h3>No model has ever trained on all the in-domain data</h3>
+        <p>The submitted model held out development conversation 5: <strong>294 of 372 dev clips</strong> &mdash; 79% of the only in-domain code-switched labelled audio that exists. A final fit over 100% of it is the most certain unclaimed gain in the repository and needs no new method at all.</p>
+      </div>
+    </div>
+    <div class="finding">
+      <p class="rank">05</p>
+      <div>
+        <h3>Training-set alignment has never been audited</h3>
+        <p>Session 35 sits at <span class="num">0.9352</span> WER against 0.16&ndash;0.44 for its nineteen neighbours, and was diagnosed as a timestamp misalignment rather than a recognition failure. It is validation-only. Nothing has ever checked the <strong>188 training sessions</strong> for the same defect &mdash; one decode pass, and it would explain why eight recipe variants all landed within 0.018 of each other on Javanese.</p>
+      </div>
+    </div>
+    <div class="finding">
+      <p class="rank">06</p>
+      <div>
+        <h3>The competition archives were one <span class="mono">git add -A</span> from a public push</h3>
+        <p>The Jember corpus (285&nbsp;MB, CC-BY-NC-SA) and the development archive sat untracked but <strong>unignored</strong> at the repository root; <code>.gitignore</code> only covered <code>data/*.tar.gz</code>. The rules forbid redistributing competition data. Fixed in this commit.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <p class="sec-kicker">The direct question</p>
+    <h2>Both &ldquo;new&rdquo; datasets are already downloaded and already used</h2>
+  </div>
+  <div class="scroller">
+  <table>
+    <thead><tr><th>Dataset</th><th class="n">Size</th><th>Where it already is</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Common Voice Spontaneous 4.0 &mdash; Javanese</strong><br><span class="mono" style="color:var(--muted);font-size:.85em">cmqi294n3004mmf07wvybp3fn</span></td>
+        <td class="n">232 clips<br>1.39 h<br><span style="color:var(--muted)">0 validated</span></td>
+        <td>Prepared as <span class="mono">cv_jv</span>, shipped inside <span class="mono">external-v1</span>. Contributes 0.99 h after windowing.</td>
+      </tr>
+      <tr>
+        <td><strong>Common Voice Scripted 26.0 &mdash; Indonesian</strong><br><span class="mono" style="color:var(--muted);font-size:.85em">cmqinqwef00xonr07z4vbfovw</span></td>
+        <td class="n">60,804 clips<br>67 h<br><span style="color:var(--muted)">read speech</span></td>
+        <td>Prepared as <span class="mono">cv_id_scripted</span>. Read Indonesian &mdash; wrong register for spontaneous code-switching.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="margin-top:18px">They are already counted in the <span class="num">+0.0037</span> that <span class="mono">arm-kitchen</span> moved. Neither can carry the Javanese half: one is 1.4 hours, the other is read Indonesian. <strong>The data that would help was never fetched</strong> &mdash; the East Javanese TTS corpora from Lumajang (which borders Jember) and Bojonegoro, ~11,900 utterances, both CC-BY-SA-4.0. <code>prepare_external.py</code> already knows how to read them; only the archives are missing.</p>
+</section>
+
+<section>
+  <div class="sec-head">
+    <p class="sec-kicker">Live Hugging Face survey, 7 Sept</p>
+    <h2>Two corrections to the model plan</h2>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px">
+    <div>
+      <h3 style="color:var(--bad)">VibeVoice is blocked by the runtime</h3>
+      <p style="font-size:.94rem;color:var(--ink-soft)"><span class="mono">VibeVoice-ASR-HF</span> declares <span class="mono">transformers 5.3.0.dev0</span>. The official runtime pins <strong>4.57.6</strong> with a hard constraint of <span class="mono">&lt;5</span>. The non-HF repo needs a vLLM plugin version the runtime does not ship. It was investment priority&nbsp;2; its Javanese pretraining share is <span class="num">0.0025%</span>. Drop it.</p>
+    </div>
+    <div>
+      <h3 style="color:var(--good)">The survey missed the CTC family</h3>
+      <p style="font-size:.94rem;color:var(--ink-soft)"><span class="mono">facebook/w2v-bert-2.0</span> &mdash; MIT, 580M, pretrained on 4.5M hours across 143 languages including Javanese and Indonesian. It is the <strong>only architecture that can use the <span class="mono">kenlm</span> and <span class="mono">pyctcdecode</span> the runtime already ships</strong>. Nothing in the repo uses either.</p>
+    </div>
+  </div>
+
+  <div class="conv" style="margin-top:26px">
+    <h3>Why a language model, specifically</h3>
+    <p><strong>46.7%</strong> of Javanese errors on already-seen words are the <em>correct word under the wrong transcription convention</em> &mdash; not a mishearing:</p>
+    <div class="conv-pairs">
+      <span>18&times; <b>ning</b> <span class="to">&rarr;</span> neng</span>
+      <span>14&times; <b>nggak</b> <span class="to">&rarr;</span> gak</span>
+      <span>13&times; <b>kaya</b> <span class="to">&rarr;</span> kayak</span>
+      <span>11&times; <b>karna</b> <span class="to">&rarr;</span> karena</span>
+      <span>10&times; <b>nang</b> <span class="to">&rarr;</span> neng</span>
+      <span>6&times; <b>wektu</b> <span class="to">&rarr;</span> waktu</span>
+    </div>
+    <p style="margin-top:14px">Context-<em>free</em> rewrite maps are measured dead at <span class="num">+0.09</span> to <span class="num">+0.23</span>, for a precise reason: the model emits <span class="mono">gak</span> correctly 167 times and wrongly 89 times, so a global rewrite loses 78. An n-gram LM trained on the Jember and development transcripts encodes those same frequencies <strong>conditioned on context</strong>. It is the conditional version of the intervention that failed unconditionally &mdash; which is why it is the one lever aimed straight at the largest error class.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <p class="sec-kicker">Five stages, in dependency order</p>
+    <h2>The programme</h2>
+  </div>
+  <div class="stages">
+    <div class="stage">
+      <div class="stage-id q">0</div>
+      <div>
+        <h3>Fix the instrument &mdash; no training</h3>
+        <p>Nothing downstream is trustworthy until the measuring stick is. All of it is decode passes.</p>
+        <ul>
+          <li>Score the model that actually scored 0.32590 on the mixed fold, so the calibration is a measurement</li>
+          <li>Report every WER at both 37.96% and 49% Javanese weighting; select on the 49% column</li>
+          <li>Decode all 188 training sessions, rank by WER, hunt the session-35 boundary-lag signature</li>
+          <li>Re-measure the context prompt <em>after</em> fine-tuning &mdash; it is worth 0.025 before</li>
+        </ul>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-id">A</div>
+      <div>
+        <h3>Close the recipe gap</h3>
+        <p>Method changes, not data changes. <span class="mono">arm-lora</span> and <span class="mono">arm-prompt</span> need no new code &mdash; one <span class="mono">modal run</span>. Then the full-fine-tune LR sweep the project never did (1e-5 today; try 3e-5 and 1e-4), speed perturbation, and a noise/RIR arm.</p>
+        <p>Finish with <strong>checkpoint averaging</strong>. <code>model_soup.py</code> was written and tested and has never produced a result row &mdash; and souping is what separated 1st from 3rd in the reference competition, where 2nd place averaged eighteen runs. It is free at inference.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-id">B</div>
+      <div>
+        <h3>Get the Javanese data, and condition on style</h3>
+        <p>Fetch the East Javanese TTS corpora. Then the trick that makes them safe to use: extend the training target's existing tag slot so it encodes <strong>corpus style, not just language</strong> &mdash; <span class="mono">Jav</span> for Jember, <span class="mono">Javtts</span> for read speech &mdash; and always decode with the in-domain tag. External audio trains the encoder; only in-domain rows teach the decoder how Jember spells things.</p>
+        <p>This reuses machinery that already exists and already has tests, and it is the honest fix for the earlier &ldquo;OpenSLR transferred negatively&rdquo; result, which had no target-style adaptation stage at all.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-id">C</div>
+      <div>
+        <h3>Build a system that fails differently</h3>
+        <p>The finding that should have driven everything: adding <em>base, zero-shot</em> Whisper to three Qwen systems moves the word oracle from 0.2267 to <strong>0.1882</strong>. The worst single system contributes the most new coverage. <strong>Diversity, not accuracy, is the scarce resource.</strong></p>
+        <ul>
+          <li>Fine-tune Whisper large-v3 &mdash; <code>train_whisper_recovery.py</code> exists and has never produced an evaluated checkpoint</li>
+          <li>Build the CTC system: w2v-BERT&nbsp;2.0 plus a character CTC head, decoded through pyctcdecode with a 4-gram KenLM over the Jember, development and Panjebar Semangat text</li>
+        </ul>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-id">D</div>
+      <div>
+        <h3>Model the convention explicitly</h3>
+        <p>Greedy and beam-4 tie on the <em>1-best</em>, which says nothing about the n-best list. Emit 8&ndash;16 hypotheses per clip and rescore against the KenLM. <strong>Measure the n-best oracle before building the rescorer</strong> &mdash; one decode pass says whether the headroom is there, and if it is not, skip the machine.</p>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-id">E</div>
+      <div>
+        <h3>Combine, then fit on everything</h3>
+        <p>Held-out-validated selector over the three diverse systems. Then the final fit on <strong>100% of labelled in-domain data</strong> &mdash; all 208 Jember sessions, all 372 development clips, external corpora capped, style tags in place. No holdout: the recipe is already chosen by then.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <p class="sec-kicker">18 days, 3 submissions per person per 7 days</p>
+    <h2>What to expect</h2>
+  </div>
+  <p>Stages 0, A, B and E are low-risk and mostly measure things that should already have been measured. That block alone should land around <span class="num">0.27&ndash;0.30</span> public &mdash; a clear improvement on 0.3259 and not a winning score. Reaching the leader requires Stage C or D to work.</p>
+  <div class="odds">
+    <div class="odd">
+      <p class="q">Beat the leader's 0.2196</p>
+      <div class="bar"><i style="width:40%"></i></div>
+      <p class="pct">35&ndash;45%</p>
+      <p class="cap">Needs one genuinely diverse system plus an honest combination pass &mdash; not a new state of the art.</p>
+    </div>
+    <div class="odd">
+      <p class="q">Break 0.20 public</p>
+      <div class="bar"><i style="width:20%"></i></div>
+      <p class="pct">15&ndash;25%</p>
+      <p class="cap">Genuinely requires hypotheses no current model produces. Stage C and D both have to land.</p>
+    </div>
+  </div>
+  <p style="margin-top:22px">These are judgements, not measurements. They sit above the earlier &ldquo;not reachable&rdquo; reading for one reason: <strong>three of the arms designed to test the question have never been run</strong>. The promotion gate stays strict &mdash; no full submission unless the 49%-weighted holdout improves by 0.015 or more, since run-to-run noise is &plusmn;0.002 and only differences above ~0.015 are resolvable on 509 clips.</p>
+</section>
+
+<section>
+  <div class="sec-head">
+    <p class="sec-kicker">Not revisited</p>
+    <h2>What the audit leaves standing</h2>
+  </div>
+  <p>These survive intact and should not be re-litigated:</p>
+  <ul class="standing">
+    <li>Blanket lowercasing costs <span class="num">+0.023</span>. Never lowercase &mdash; the MDC scorer compares casing as written.</li>
+    <li>Hyphen-to-space costs <span class="num">+0.056</span>.</li>
+    <li>Context-free spelling maps cost <span class="num">+0.09</span> to <span class="num">+0.23</span>; vocabulary snapping <span class="num">+0.0131</span>.</li>
+    <li>The Javanese diacritic convention as implemented is correct &mdash; development writes Jember's accented forms plain 99.8% of the time.</li>
+    <li>Duration matching by cutting short Jember segments is harmful (<span class="num">+0.0066</span>).</li>
+    <li>Beam search over greedy is <span class="num">+0.0003</span> on the 1-best.</li>
+    <li>Base Whisper large-v3 is the weaker standalone model &mdash; but it is the strongest ensemble contributor.</li>
+    <li>The annotation-inconsistency floor is 0.02&ndash;0.05 and does not block the target.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <span>docs/kb/11-audit-and-methodology-v2.md</span>
+  <span>branch audit-and-methodology-v2</span>
+  <span>deadline 2026-09-25 00:00 UTC</span>
+</footer>
+</div>
