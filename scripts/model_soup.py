@@ -12,10 +12,13 @@ import json
 import shutil
 from pathlib import Path
 
+# Kept for reference and for tests; the copy step now takes whatever the first
+# member actually holds, because a hard-coded list silently drops any asset a
+# future transformers release renames.
 CONFIG_FILES = ("config.json", "generation_config.json", "preprocessor_config.json",
                 "processor_config.json", "tokenizer_config.json", "tokenizer.json",
-                "special_tokens_map.json", "chat_template.json", "merges.txt", "vocab.json",
-                "added_tokens.json", "normalizer.json")
+                "special_tokens_map.json", "chat_template.json", "chat_template.jinja",
+                "merges.txt", "vocab.json", "added_tokens.json", "normalizer.json")
 
 
 def state_dict_files(directory: Path):
@@ -70,10 +73,13 @@ def average_state_dicts(directories, output: Path, weights=None):
         shards.setdefault(shard_of[name], {})[name] = tensor.to(dtypes[name])
     for shard_name, tensors in shards.items():
         save_file(tensors, str(output / shard_name), metadata={"format": "pt"})
-    for name in CONFIG_FILES + ("model.safetensors.index.json",):
-        source = directories[0] / name
-        if source.is_file():
-            shutil.copy2(source, output / name)
+    # Copy every non-weight file the first member carries, rather than a fixed
+    # list. The list missed chat_template.jinja (transformers renamed it from
+    # chat_template.json), and a soup that is missing one tokenizer asset loads
+    # as an IndexError from AutoProcessor rather than as a clear error.
+    for source in sorted(directories[0].iterdir()):
+        if source.is_file() and source.suffix != ".safetensors":
+            shutil.copy2(source, output / source.name)
     return {"output": str(output), "members": [str(d) for d in directories],
             "weights": weights, "parameters": len(totals), "shards": sorted(shards)}
 

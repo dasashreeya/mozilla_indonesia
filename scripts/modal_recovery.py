@@ -874,10 +874,43 @@ def merge_adapters(run: str, labels: list[str] = None):
                 "note": "no matching adapters; full fine-tune runs need no merge"}
     processor = AutoProcessor.from_pretrained("/vol/models/qwen3-asr-1.7b",
                                               local_files_only=True)
+    base_dir = Path("/vol/models/qwen3-asr-1.7b")
+
+    def ensure_assets(target):
+        """Copy the tokenizer/preprocessor files a merged model needs to load.
+
+        `processor.save_pretrained` on the AutoProcessor loaded here writes
+        nothing -- the trainer uses the qwen-asr wrapper's own processor, which
+        does. The result was a directory holding config.json, the weights and
+        nothing else: it passes an "is it a model?" check, and then
+        AutoProcessor.from_pretrained dies with IndexError when anything tries
+        to load it. Copying the pinned base's assets is both simpler and more
+        faithful than re-deriving them, since the merge never changes them.
+        """
+        import shutil
+        copied = 0
+        for source in sorted(base_dir.iterdir()):
+            if not source.is_file() or source.suffix == ".safetensors":
+                continue
+            if source.name in ("config.json", "generation_config.json",
+                               "model.safetensors.index.json", "MODEL_RECEIPT.json"):
+                continue
+            destination = target / source.name
+            if not destination.exists():
+                shutil.copy2(source, destination)
+                copied += 1
+        return copied
+
     merged = []
     for adapter_dir in adapters:
         target = directory / f"merged-{adapter_dir.name.partition('-')[2]}"
         if _is_full_model(target):
+            # Already merged, but earlier merges shipped without the tokenizer
+            # assets, so top them up rather than re-running an hour of merging.
+            added = ensure_assets(target)
+            if added:
+                print(f"{target.name}: restored {added} missing asset(s)", flush=True)
+                volume.commit()
             merged.append(str(target))
             continue
         base = Qwen3ASRModel.from_pretrained("/vol/models/qwen3-asr-1.7b",
@@ -886,6 +919,7 @@ def merge_adapters(run: str, labels: list[str] = None):
             PeftModel.from_pretrained(base, str(adapter_dir)).merge_and_unload())
         merged_model.save_pretrained(target, safe_serialization=True)
         processor.save_pretrained(target)
+        ensure_assets(target)
         del base
         merged.append(str(target))
         print(f"Merged {adapter_dir.name} -> {target.name}", flush=True)
