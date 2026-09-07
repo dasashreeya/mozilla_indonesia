@@ -284,6 +284,41 @@ def command_download(args: argparse.Namespace, config: Mapping[str, Any]) -> int
     return 0
 
 
+def command_download_all(args: argparse.Namespace, config: Mapping[str, Any]) -> int:
+    datasets = config.get("datasets", {})
+    if not datasets:
+        raise MDCError("No datasets are configured")
+
+    selected = []
+    for alias, dataset in datasets.items():
+        priority = dataset.get("priority")
+        if args.priority is not None and priority != args.priority:
+            continue
+        selected.append(alias)
+    if not selected:
+        raise MDCError("No configured datasets matched the requested filters")
+
+    print("Downloading {} configured full dataset archive(s): {}".format(len(selected), ", ".join(selected)))
+    for alias in selected:
+        print("\n=== {} ===".format(alias), flush=True)
+        download_args = argparse.Namespace(
+            dataset=alias,
+            sample=False,
+            download_dir=None,
+            extract=not args.no_extract,
+            extract_dir=None,
+            max_audio_files=None,
+            seed=args.seed,
+        )
+        try:
+            command_download(download_args, config)
+        except (MDCError, OSError, json.JSONDecodeError) as exc:
+            if not args.keep_going:
+                raise
+            print("Skipping {} after error: {}".format(alias, exc), file=sys.stderr)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -307,6 +342,13 @@ def build_parser() -> argparse.ArgumentParser:
     download.add_argument("--max-audio-files", type=int)
     download.add_argument("--seed", type=int, default=20260905)
     download.set_defaults(func=command_download)
+
+    download_all = subparsers.add_parser("download-all", help="Download every configured full MDC dataset")
+    download_all.add_argument("--priority", type=int, help="Only download datasets with this configured priority")
+    download_all.add_argument("--no-extract", action="store_true", help="Download archives without extracting them")
+    download_all.add_argument("--keep-going", action="store_true", help="Continue after a dataset download fails")
+    download_all.add_argument("--seed", type=int, default=20260905)
+    download_all.set_defaults(func=command_download_all)
     return parser
 
 
