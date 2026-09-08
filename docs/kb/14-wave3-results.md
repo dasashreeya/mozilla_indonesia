@@ -52,6 +52,14 @@ The local downloaded archive has the same byte count and SHA-256. The projected
 runtime leaves about 28.7 minutes before the entrypoint's five-minute safety
 margin, subject to the test audio workload matching the validation workload.
 
+A coarse probability-weight sweep found 60% `arm-extb` / 40% `arm-lr3` best.
+Its exact archive, `submission-ens-ext60-lr40-b4.zip`, is 8,158,143,556 bytes
+with SHA-256
+`2c73ef239380548985eb8817cb37727243b5c4618b797447a5d7403cba97bd09`.
+The package audit produced **0.2116866 WER** (Javanese 0.2327546,
+code-switched 0.1987939), 509/509 nonempty outputs, and a 4,817.1-second
+(80.3-minute) linear projection to 2,118 clips.
+
 ## Bugs found
 
 1. `eval_checkpoint.py` wrote beam width to the outer Qwen model's generation
@@ -114,6 +122,8 @@ The first measured comparisons are:
 | extb + lr3 probability ensemble, greedy | 0.223890 | 0.242961 | 0.212219 |
 | Soup, corrected beam 4 | **0.218813** | 0.243078 | **0.203963** |
 | extb + lr3 probability ensemble, beam 4 | **0.212845** | **0.231347** | **0.201522** |
+| extb 60% + lr3 40%, beam 4 | **0.211687** | 0.232755 | **0.198794** |
+| extb + lr3 + soup, beam 4 | 0.211508 | 0.231816 | 0.199081 |
 
 Correct beam search removes 250 errors from the soup on the same 22,453 words.
 The two-model beam ensemble removes 384 errors and improves WER by 0.01710 over
@@ -121,6 +131,12 @@ the original soup. Its descriptive paired session-bootstrap interval is
 [-0.03462, -0.01314]. The direct evaluator took about 756 seconds for 509 clips;
 the exact package audit above is the authoritative runtime measurement.
 These are local results, not public scores. The CTC model is not a candidate.
+
+The 60/40 weighting gain over equal weights is 0.00116; its descriptive paired
+session-bootstrap interval is [-0.00241, 0.00375]. The three-model gain is also
+inside zero and adds about 50% decode cost. The 60/40 two-model package is the
+deployment candidate because it has the lowest audited two-model WER without
+the third model's runtime and archive-size penalty.
 
 Further results are pending. A final fit trained on all labelled data must never be
 scored on this fold and described as held-out; those clips have been seen.
