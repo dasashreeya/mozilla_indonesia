@@ -147,6 +147,18 @@ def qwen_decoder(config: Mapping[str, object],
         max_inference_batch_size=int(config["batch_size"]),
         max_new_tokens=int(config["max_new_tokens"]),
     )
+    from qwen_decoding import install_probability_ensemble, set_beams
+    set_beams(model.model, int(config.get("beams", 1)))
+    extra_models = []
+    for relative_path in config.get("ensemble_models", []):
+        extra = Qwen3ASRModel.from_pretrained(
+            str(SOURCE_DIR / relative_path), dtype=torch.bfloat16,
+            device_map="cuda:0", local_files_only=True)
+        if extra.processor.tokenizer.get_vocab() != model.processor.tokenizer.get_vocab():
+            raise ValueError("Ensemble tokenizer mapping mismatch")
+        extra_models.append(extra.model)
+    if extra_models:
+        install_probability_ensemble(model.model, extra_models, config.get("ensemble_weights"))
     prompt = str(config.get("prompt") or "")
     routing = bool(config.get("language_routing")) and bool(languages)
     if routing:

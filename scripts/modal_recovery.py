@@ -33,6 +33,7 @@ train_image = (base.uv_pip_install("torch==2.11.0", "torchaudio==2.11.0", index_
                .add_local_file(ROOT / "scripts/train_recovery.py", "/workspace/scripts/train_recovery.py")
                .add_local_file(ROOT / "scripts/train_whisper_recovery.py", "/workspace/scripts/train_whisper_recovery.py")
                .add_local_file(ROOT / "scripts/eval_checkpoint.py", "/workspace/scripts/eval_checkpoint.py")
+               .add_local_file(ROOT / "submission_src/qwen_decoding.py", "/workspace/scripts/qwen_decoding.py")
                .add_local_file(ROOT / "scripts/model_soup.py", "/workspace/scripts/model_soup.py"))
 
 
@@ -162,6 +163,47 @@ def prepare_external(name: str, corpora: list[str], language_tags: bool = False,
     return receipt
 
 
+@app.function(image=prep_image, volumes={"/vol": volume}, timeout=1800, cpu=4, memory=8192)
+def clone_without_prompt(source: str = "ds-full", destination: str = "ds-full-np"):
+    """Freeze a prepared dataset variant while removing only its context prompt."""
+    import hashlib
+    import json
+    import os
+    import shutil
+    from pathlib import Path
+
+    check_name(source, "source dataset")
+    check_name(destination, "destination dataset")
+    src = Path("/vol/data") / source
+    dst = Path("/vol/data") / destination
+    if dst.exists():
+        raise ValueError(f"Refusing to overwrite existing dataset: {destination}")
+    receipt = json.loads((src / "PREPARATION_RECEIPT.json").read_text())
+    dst.mkdir(parents=True)
+    for name in ("metadata.csv", "validation.qwen.jsonl", "private_provenance.json"):
+        if (src / name).exists():
+            shutil.copy2(src / name, dst / name)
+    # Avoid duplicating tens of GB. Both paths live on the same immutable Modal
+    # volume, and train_recovery validates each resolved audio file before use.
+    os.symlink(src / "audio", dst / "audio", target_is_directory=True)
+    with (src / "train.qwen.jsonl").open(encoding="utf-8") as reader, \
+         (dst / "train.qwen.jsonl").open("w", encoding="utf-8") as writer:
+        for line in reader:
+            record = json.loads(line)
+            record.pop("prompt", None)
+            writer.write(json.dumps(record, ensure_ascii=False) + "\n")
+    digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+    receipt.update({"prompt": "", "prompt_preset": "none",
+                    "metadata_sha256": digest(dst / "metadata.csv"),
+                    "train_jsonl_sha256": digest(dst / "train.qwen.jsonl"),
+                    "validation_jsonl_sha256": digest(dst / "validation.qwen.jsonl"),
+                    "derived_from": source,
+                    "derivation": "removed prompt field only; audio is a volume-local symlink"})
+    (dst / "PREPARATION_RECEIPT.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    volume.commit()
+    return {k: v for k, v in receipt.items() if k != "excluded_source_rows"}
+
+
 @app.function(image=stage_image, volumes={"/vol": volume}, timeout=3600, cpu=2, memory=8192)
 def stage_data(archive_sha256: str, dataset: str = "ds-v1"):
     import hashlib
@@ -223,7 +265,8 @@ def stage_whisper():
               memory=65536, timeout=2 * 3600, retries=0, single_use_containers=True)
 def evaluate(label: str, model: str, dataset: str = "ds-w0", beams: int = 1,
              force_language: bool = False, prompt: str = "", language_map: str = "",
-             batch_size: int = 8, limit: int = 0, backend: str = "auto"):
+             batch_size: int = 8, limit: int = 0, backend: str = "auto",
+             ensemble_models: str = "", ensemble_weights: str = ""):
     """Score an existing checkpoint without training it -- a decode pass, not a run."""
     import json
     import subprocess
@@ -242,6 +285,13 @@ def evaluate(label: str, model: str, dataset: str = "ds-w0", beams: int = 1,
         command.append("--force-language")
     if language_map:
         command += ["--language-map", language_map]
+    for member in filter(None, ensemble_models.split(",")):
+        member_path = Path("/vol") / member
+        if not member_path.resolve().is_relative_to(Path("/vol").resolve()) or not member_path.is_dir():
+            raise ValueError(f"Invalid ensemble member: {member}")
+        command += ["--ensemble-model", str(member_path)]
+    for weight in filter(None, ensemble_weights.split(",")):
+        command += ["--ensemble-weight", weight]
     subprocess.run(command, check=True)
     volume.commit()
     return json.loads(output.read_text())
@@ -999,11 +1049,45 @@ def final_fit(run_id: str = "arm-final", dataset: str = "ds-full", steps: int = 
     if steps <= 0:
         raise SystemExit("Pass --steps: the step count the validated arms selected. "
                          "Read it from the winning arm's BEST_MODEL.json history.")
+    if extra_data.lower() == "none":
+        extra_data = ""
     result = train.remote(run_id=run_id, dataset=dataset, max_steps=steps, epochs=99,
                           lora_rank=lora_rank, lr=lr, spec_augment=0.5,
                           force_language=True, keep_epochs=True, final_fit=True,
                           extra_data=extra_data, evals_per_epoch=0)
     print(json.dumps(result, indent=2))
+    return result
+
+
+@app.function(image=train_image, volumes={"/vol": volume}, timeout=900, cpu=2, memory=4096)
+def recover_final_result(run_id: str = "arm-final", expected_steps: int = 2040):
+    """Recover the receipt of an older final fit that failed serializing infinity."""
+    import json
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, "/workspace/scripts")
+    from train_recovery import save_json, training_result
+
+    check_name(run_id, "run ID")
+    run = Path("/vol/runs") / run_id
+    if (run / "TRAIN_RESULT.json").exists():
+        return json.loads((run / "TRAIN_RESULT.json").read_text())
+    state = json.loads((run / "trainer_state.json").read_text())
+    selected = json.loads((run / "BEST_MODEL.json").read_text())
+    config = json.loads((run / "RUN_CONFIG.json").read_text())
+    if (not selected.get("final_fit") or config["data"]["validation_rows"] != 0
+            or state["global_step"] != expected_steps or state["max_steps"] != expected_steps):
+        raise ValueError("Refusing to mark an incomplete or validated run as a completed final fit")
+    history = selected["epochs"]
+    if not history or history[-1]["step"] != expected_steps:
+        raise ValueError("The last saved weights do not match the completed training step")
+    model = run / f"merged-epoch-{history[-1]['epoch']}"
+    if not _is_full_model(model) or not (model / "tokenizer_config.json").is_file():
+        raise ValueError("The final merged model is missing weights or tokenizer assets")
+    result = training_result(expected_steps, None, None, model, selected["path"], history, final_fit=True)
+    result["receipt_recovery"] = "Completed trainer state and merged weights verified after nonfinite-JSON failure"
+    save_json(run / "TRAIN_RESULT.json", result)
+    volume.commit()
     return result
 
 
@@ -1030,7 +1114,8 @@ package_image = (base.uv_pip_install("numpy==2.5.2")
 @app.function(image=package_image, volumes={"/vol": volume}, timeout=2 * 3600,
               cpu=8, memory=65536)
 def package(model: str, label: str = "submission", prompt: str = "",
-            language_routing: bool = True, batch_size: int = 24):
+            language_routing: bool = True, batch_size: int = 24, beams: int = 1,
+            ensemble_models: str = "", ensemble_weights: str = ""):
     """Build the offline submission ZIP on the volume.
 
     Packaged here rather than locally so the weights never round-trip: the model
@@ -1053,13 +1138,31 @@ def package(model: str, label: str = "submission", prompt: str = "",
 
     # submission_src ships from the image read-only, so config.json is written
     # into a working copy rather than edited in place.
+    import shutil
+    import sys
     source = Path("/tmp/submission_src")
     if source.exists():
         subprocess.run(["rm", "-rf", str(source)], check=True)
     subprocess.run(["cp", "-r", "/workspace/submission_src", str(source)], check=True)
+    sys.path.insert(0, "/workspace/scripts")
+    from build_submission import inference_model_files
+    extra_paths = []
+    for index, member in enumerate(filter(None, ensemble_models.split(","))):
+        member_path = Path("/vol") / member
+        if (not member_path.resolve().is_relative_to(Path("/vol").resolve())
+                or not _is_full_model(member_path)):
+            raise ValueError(f"Invalid ensemble member: {member}")
+        relative = f"ensemble/{index}"
+        for item in inference_model_files(member_path):
+            target = source / relative / item.relative_to(member_path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, target)
+        extra_paths.append(relative)
     config = json.loads((source / "config.json").read_text())
+    weights = [float(weight) for weight in filter(None, ensemble_weights.split(","))]
     config.update({"batch_size": batch_size, "language_routing": language_routing,
-                   "prompt": prompt})
+                   "prompt": prompt, "beams": beams, "ensemble_models": extra_paths,
+                   "ensemble_weights": weights or None})
     (source / "config.json").write_text(json.dumps(config, indent=2) + "\n")
 
     output = Path("/vol/artifacts") / f"{label}.zip"

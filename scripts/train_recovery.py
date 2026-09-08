@@ -136,6 +136,19 @@ def save_json(path, value):
     temp.replace(path)
 
 
+def training_result(steps, baseline_wer, best_wer, best_model, best_adapter, history,
+                    final_fit=False):
+    """Final fits have no validation WER; infinity cannot be written as JSON."""
+    return {"status": "completed", "steps": steps,
+            "baseline_wer": None if final_fit else baseline_wer,
+            "best_wer": None if final_fit else best_wer,
+            "best_model": str(best_model),
+            "best_adapter": str(best_adapter) if best_adapter else None,
+            "final_fit": final_fit,
+            "improves_baseline": None if final_fit else best_wer < baseline_wer,
+            "history": history}
+
+
 def main():
     import torch
     from datasets import load_dataset
@@ -298,14 +311,16 @@ def main():
               else "full fine-tuning")
     save_json(args.output / "RUN_CONFIG.json", {"model": str(args.model), "data": receipt,
               "epochs": args.epochs, "batch_size": args.batch_size, "grad_acc": args.grad_acc,
-              "learning_rate": args.lr, "max_new_tokens": 512, "seed": 20260905,
+              "learning_rate": args.lr, "max_steps": args.max_steps,
+              "final_fit": args.final_fit, "max_new_tokens": 512, "seed": 20260905,
               "lora_rank": args.lora_rank, "lora_alpha": args.lora_alpha,
               "spec_augment": args.spec_augment, "force_language": args.force_language,
               "prompt": prompt, "language_tags": tagged, "keep_epochs": args.keep_epochs,
               "extra_data": extra_receipts, "extra_fraction": args.extra_fraction,
               "total_training_rows": count,
               "method": f"{method}, BF16, response-only supervision, gradient checkpointing",
-              "selection": "held-out conversation generation WER; baseline must be beaten"})
+              "selection": ("none; fixed-step final fit" if args.final_fit else
+                            "held-out conversation generation WER; baseline must be beaten")})
     print(f"Loading pinned Qwen base; train rows={count}, validation={len(validation)}", flush=True)
     wrapper = Qwen3ASRModel.from_pretrained(str(args.model), dtype=torch.bfloat16,
               device_map="cuda:0", max_inference_batch_size=8, max_new_tokens=512, local_files_only=True)
@@ -567,11 +582,9 @@ def main():
         del base, adapter
         print(f"Merged best LoRA adapter into {merged}", flush=True)
         commit()
-    result = {"status": "completed", "steps": trainer.state.global_step, "baseline_wer": baseline["wer"],
-              "best_wer": callback.best, "best_model": str(merged) if merged else callback.best_dir,
-              "best_adapter": callback.best_dir if merged else None,
-              "improves_baseline": callback.best < baseline["wer"],
-              "history": callback.history}
+    result = training_result(trainer.state.global_step, baseline["wer"], callback.best,
+                             merged or callback.best_dir, callback.best_dir if merged else None,
+                             callback.history, final_fit=args.final_fit)
     save_json(args.output / "TRAIN_RESULT.json", result)
     commit()
     print(json.dumps(result, indent=2), flush=True)

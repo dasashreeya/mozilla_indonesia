@@ -1,5 +1,11 @@
 # Wave 2 results — the depth path, executed
 
+> **2026-09-08 correction:** The user reports **0.2991 public WER** for this
+> exact ZIP. Its actual entrypoint was re-evaluated on 509 held-out clips:
+> **0.23017 WER**, zero blank transcripts, 150.6 seconds. The prior forecast
+> was too optimistic. The old beam setting changed the outer model config,
+> but Qwen generates through `model.thinker`. See [14](14-wave3-results.md).
+
 _2026-09-07/08. What the programme in
 [11-audit-and-methodology-v2](11-audit-and-methodology-v2.md) produced when it
 was actually run. Every number is on the same 509-clip fold and the same 22,453

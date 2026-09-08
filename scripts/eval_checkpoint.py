@@ -23,6 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "vendor"))
+sys.path.insert(0, str(ROOT / "submission_src"))
 
 SAMPLE_RATE = 16000
 # Whisper's encoder is fixed at 30 s, so longer clips are decoded in windows.
@@ -70,10 +71,19 @@ def qwen_decoder(args, model_dir: Path, tokens):
         local_files_only=True)
     if args.force_language:
         register_competition_languages()
-    if args.beams > 1:
-        # transcribe() exposes no generation kwargs and calls generate() with only
-        # max_new_tokens, so the beam width has to come from the generation config.
-        wrapper.model.generation_config.num_beams = args.beams
+    from qwen_decoding import install_probability_ensemble, set_beams
+    set_beams(wrapper.model, args.beams)
+    extra_wrappers = []
+    for path in args.ensemble_model:
+        extra = Qwen3ASRModel.from_pretrained(str(path), dtype=torch.bfloat16,
+                    device_map="cuda:0", local_files_only=True)
+        if extra.processor.tokenizer.get_vocab() != wrapper.processor.tokenizer.get_vocab():
+            raise ValueError("Ensemble tokenizer mapping mismatch")
+        set_beams(extra.model, 1)
+        extra_wrappers.append(extra)
+    if extra_wrappers:
+        install_probability_ensemble(wrapper.model, [w.model for w in extra_wrappers],
+                                     args.ensemble_weight or None)
 
     def decode(batch):
         paths = [str(args.data / "audio" / r["audio_filename"]) for r in batch]
@@ -140,6 +150,8 @@ def main():
     p.add_argument("--backend", choices=["auto", "qwen", "whisper"], default="auto")
     p.add_argument("--batch-size", type=int, default=8)
     p.add_argument("--beams", type=int, default=1)
+    p.add_argument("--ensemble-model", type=Path, action="append", default=[])
+    p.add_argument("--ensemble-weight", type=float, action="append", default=[])
     p.add_argument("--max-new-tokens", type=int, default=512)
     p.add_argument("--prompt", default="")
     p.add_argument("--force-language", action="store_true")
@@ -206,6 +218,8 @@ def main():
         writer = csv.DictWriter(handle, fieldnames=["audio_filename", "transcript"])
         writer.writeheader(); writer.writerows(predictions)
     result = {"label": args.label, "model": str(args.model), "backend": backend,
+              "ensemble_models": [str(path) for path in args.ensemble_model],
+              "ensemble_weights": args.ensemble_weight or None,
               "beams": args.beams, "force_language": args.force_language, "prompt": args.prompt,
               "language_map": tokens if args.force_language else None,
               "split": args.split, "clips": len(rows), "empty_predictions": empty,

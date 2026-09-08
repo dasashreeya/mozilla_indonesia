@@ -24,6 +24,8 @@ TRAINING_ONLY_FILENAMES = {
 def files_below(root: Path) -> Iterable[Path]:
     for path in sorted(root.rglob("*")):
         if path.is_file():
+            if "__pycache__" in path.parts or path.suffix in {".pyc", ".pyo"}:
+                continue
             if path.is_symlink():
                 raise ValueError("Refusing to package symlink: {}".format(path))
             yield path

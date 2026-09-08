@@ -1,5 +1,15 @@
 # Knowledge base
 
+**Current update, 2026-09-08:** `submission-soup-div2.zip` scored **0.2991
+public WER**, reported by the user. The actual packaged entrypoint reproduces
+the local result at **0.23017 WER** with 509/509 nonempty predictions. Corrected
+beam search plus a two-model probability ensemble reaches **0.21244 held-out
+WER** through the exact packaged entrypoint, with 509/509 nonempty predictions
+and an 86.3-minute projected full runtime. Full-data fits are running. The CTC
+branch emitted only blanks and is retired. See
+[14-wave3-results](14-wave3-results.md) for current measurements; older
+forecasts and model-family verdicts below are historical.
+
 _Last updated 2026-09-05. Entry point for anyone — human or agent — picking this
 competition attempt up._
 
@@ -84,7 +94,7 @@ Supporting documents that predate this knowledge base:
 | | |
 |---|---|
 | Best known full-test score | **0.32590**, rank #37→#38 (Jember fine-tune, 2026-09-06) |
-| Best model built | **soup-div2**: fold 0.2299, Javanese 0.2573, code-switched 0.2132, forecast 0.2868. Packaged and verified as `artifacts/submission-soup-div2.zip`, not yet submitted. See [13-wave2-results](13-wave2-results.md) |
+| Best model built | **extb + lr3 probability ensemble, beam 4**: exact ZIP held-out 0.21244, Javanese 0.23041, code-switched 0.20145; 509/509 nonempty, projected runtime 86.3 minutes. This is not a public-score guarantee. See [14-wave3-results](14-wave3-results.md) |
 | **Superseded verdict** | The `<0.20` "not reachable" finding below is a bound on *recombining nine near-identical systems*, not on the task. Five of twelve defined arms — including the reference winning recipe — have never been run. See [11-audit-and-methodology-v2](11-audit-and-methodology-v2.md) |
 | Hard ceiling on combining what we own | **0.1641 word-level oracle** over nine saved systems, against a 0.148 target. No selector, ensemble or corrector built on current models can reach <0.20 — see [10](10-cpu-analysis-and-verdict.md) |
 | Best validated improvement | **≈0.2631–0.2638 local (−0.005)** from a held-out-validated multi-model selector, needing no new training |

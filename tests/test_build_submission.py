@@ -23,6 +23,8 @@ class BuildSubmissionTests(unittest.TestCase):
             source.mkdir()
             model.mkdir()
             (source / "main.py").write_text("print('ok')\n", encoding="utf-8")
+            (source / "__pycache__").mkdir()
+            (source / "__pycache__/main.cpython-312.pyc").write_bytes(b"old bytecode")
             (model / "config.json").write_text("{}\n", encoding="utf-8")
             (model / "model.safetensors").write_bytes(b"weights")
             for name in BUILD_SUBMISSION.TRAINING_ONLY_FILENAMES:
@@ -39,6 +41,7 @@ class BuildSubmissionTests(unittest.TestCase):
             self.assertIn("main.py", names)
             self.assertIn("model/config.json", names)
             self.assertIn("model/model.safetensors", names)
+            self.assertFalse(any("__pycache__" in name for name in names))
             self.assertTrue(
                 all("model/" + name not in names for name in BUILD_SUBMISSION.TRAINING_ONLY_FILENAMES)
             )
