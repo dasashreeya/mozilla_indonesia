@@ -66,6 +66,7 @@ measurement shows is worth up to 6.4 WER points.
 | [10-cpu-analysis-and-verdict](10-cpu-analysis-and-verdict.md) | **The verdict on <0.20.** Word-level oracle ceiling, the orthography question settled, error taxonomy, two dead correction strategies, the annotation floor, session 35, and the model survey | before proposing any post-processing, ensemble or base-model change |
 | [11-audit-and-methodology-v2](11-audit-and-methodology-v2.md) | **The 2026-09-07 audit and the route to first place.** Five of twelve arms never ran, the calibration pairs two different models, the leader sits on our oracle, and the five-stage programme that follows | before acting on the `<0.20` verdict in [10](10-cpu-analysis-and-verdict.md) |
 | [12-runbook-wave2](12-runbook-wave2.md) | **The command sequence.** One-time setup, the five build/train/soup/final stages with a gate on each, the shared-account naming rules, and troubleshooting | when actually running the programme |
+| [13-wave2-results](13-wave2-results.md) | **What the programme produced.** Javanese 0.3368 -> 0.2573, the three conclusions it overturns, the soup, and the seven defects found on the way | after reading 11, before planning anything further |
 | [PROBLEM_BRIEF](PROBLEM_BRIEF.md) | Portable, self-contained statement of the problem and everything ruled out | when seeking an outside opinion |
 | [research/winning-solutions.md](research/winning-solutions.md) | **The proven recipe.** Pasketti winners' exact models, LoRA hyperparameters, augmentation, averaging strategy | before designing any training run |
 | [research/official-competition-spec.md](research/official-competition-spec.md) | Verified official facts: audio format, metadata columns, runtime versions, limits, rules | when a factual assumption matters |
@@ -83,6 +84,7 @@ Supporting documents that predate this knowledge base:
 | | |
 |---|---|
 | Best known full-test score | **0.32590**, rank #37→#38 (Jember fine-tune, 2026-09-06) |
+| Best model built | **soup-div2**: fold 0.2299, Javanese 0.2573, code-switched 0.2132, forecast 0.2868. Packaged and verified as `artifacts/submission-soup-div2.zip`, not yet submitted. See [13-wave2-results](13-wave2-results.md) |
 | **Superseded verdict** | The `<0.20` "not reachable" finding below is a bound on *recombining nine near-identical systems*, not on the task. Five of twelve defined arms — including the reference winning recipe — have never been run. See [11-audit-and-methodology-v2](11-audit-and-methodology-v2.md) |
 | Hard ceiling on combining what we own | **0.1641 word-level oracle** over nine saved systems, against a 0.148 target. No selector, ensemble or corrector built on current models can reach <0.20 — see [10](10-cpu-analysis-and-verdict.md) |
 | Best validated improvement | **≈0.2631–0.2638 local (−0.005)** from a held-out-validated multi-model selector, needing no new training |
