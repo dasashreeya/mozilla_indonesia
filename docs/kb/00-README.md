@@ -5,9 +5,11 @@ public WER**, reported by the user. The actual packaged entrypoint reproduces
 the local result at **0.23017 WER** with 509/509 nonempty predictions. Corrected
 beam search plus a 60/40 two-model probability ensemble reaches **0.21169
 held-out WER** through the exact packaged entrypoint, with 509/509 nonempty
-predictions and an 80.3-minute projected full runtime. Full-data fits are
-running. The CTC
-branch emitted only blanks and is retired. See
+predictions and an 80.3-minute projected full runtime. The corresponding
+full-data final ensemble is packaged, smoke-tested and locally hash-verified as
+`artifacts/submission-final-ens-ext60-lr40-b4.zip`; it has no honest local WER
+because its models saw the validation clips. The CTC branch emitted only blanks
+and is retired. See
 [14-wave3-results](14-wave3-results.md) for current measurements; older
 forecasts and model-family verdicts below are historical.
 
@@ -95,7 +97,7 @@ Supporting documents that predate this knowledge base:
 | | |
 |---|---|
 | Best known full-test score | **0.32590**, rank #37→#38 (Jember fine-tune, 2026-09-06) |
-| Best model built | **extb 60% + lr3 40% probability ensemble, beam 4**: exact ZIP held-out 0.21169, Javanese 0.23275, code-switched 0.19879; 509/509 nonempty, projected runtime 80.3 minutes. This is not a public-score guarantee. See [14-wave3-results](14-wave3-results.md) |
+| Best model built | **Final extb 60% + lr3 40% probability ensemble, beam 4**: `artifacts/submission-final-ens-ext60-lr40-b4.zip`, SHA-256 `f357f8ff3ebd1f6fc926ff599dd4a818e7de9b78187df6a37b650594e1065e8f`. Its matching held-out recipe scored 0.21169 (Javanese 0.23275, code-switched 0.19879); the final-data ZIP passed a 20-clip execution smoke but has no honest local WER. This is not a public-score guarantee. See [14-wave3-results](14-wave3-results.md) |
 | **Superseded verdict** | The `<0.20` "not reachable" finding below is a bound on *recombining nine near-identical systems*, not on the task. Five of twelve defined arms — including the reference winning recipe — have never been run. See [11-audit-and-methodology-v2](11-audit-and-methodology-v2.md) |
 | Hard ceiling on combining what we own | **0.1641 word-level oracle** over nine saved systems, against a 0.148 target. No selector, ensemble or corrector built on current models can reach <0.20 — see [10](10-cpu-analysis-and-verdict.md) |
 | Best validated improvement | **≈0.2631–0.2638 local (−0.005)** from a held-out-validated multi-model selector, needing no new training |
@@ -118,6 +120,14 @@ Supporting documents that predate this knowledge base:
   the only artifact with a known full-test score.
 
 ## Changelog
+
+* **2026-09-08 (final fit)** - Completed the two no-validation final fits, merged
+  the 2,040-step external-data LoRA, and built the 60/40 beam-4 ensemble. The
+  exact downloaded ZIP passed a 20/20 nonempty offline smoke and matches SHA-256
+  `f357f8ff3ebd1f6fc926ff599dd4a818e7de9b78187df6a37b650594e1065e8f`.
+  Its weights and experiment records are backed up privately on Hugging Face.
+  The best honest held-out result remains 0.21169; final-fit smoke WER is
+  resubstitution and is not reported as model-selection evidence.
 
 * **2026-09-07** — Independent audit. `arm-lora` (the verbatim 1st-place
   Pasketti recipe), `arm-prompt`, `arm-extra`, `arm-javtts` and `arm-alldata` are

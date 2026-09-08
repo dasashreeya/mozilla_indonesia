@@ -60,6 +60,33 @@ The package audit produced **0.2116866 WER** (Javanese 0.2327546,
 code-switched 0.1987939), 509/509 nonempty outputs, and a 4,817.1-second
 (80.3-minute) linear projection to 2,118 clips.
 
+## Final-data candidates
+
+Two no-validation fits completed on all 11,170 labelled no-prompt rows. The
+full-parameter `arm-final-lr3-np` fit reached its requested 1,223 steps. The
+external-data LoRA fit, `arm-final-extb-np-v2`, used those rows plus 5,156 MDC
+East Javanese/Common Voice rows and completed 2,040 steps; its epoch-2 adapter
+was merged to `runs/arm-final-extb-np-v2/merged-epoch-2`. Both receipts contain
+null validation scores by design.
+
+The recommended final archive applies the held-out-selected 60/40 weighting to
+the corresponding full-data models:
+
+| Artifact | Bytes | SHA-256 | Exact ZIP smoke |
+| --- | ---: | --- | --- |
+| `artifacts/submission-final-ens-ext60-lr40-b4.zip` | 8,160,275,521 | `f357f8ff3ebd1f6fc926ff599dd4a818e7de9b78187df6a37b650594e1065e8f` | 20/20 nonempty, 63.3 s |
+| `artifacts/submission-final-extb-b4.zip` | 4,080,140,603 | `0efb852f2d5c5b3b5f81318a5868b14399f03a2bf9e1c13b347195d4206fc0e1` | 20/20 nonempty, 37.5 s |
+| `artifacts/submission-final-lr3-b4.zip` | 4,080,140,622 | `1af877919e059838543c976c4f6248d2c671d7241d05e8e90dcd79f715adca99` | 20/20 nonempty |
+
+The ensemble and ext-b smokes produced 0.10943 and 0.14151 WER respectively,
+but these are **resubstitution results, not held-out scores**: the final fits saw
+these clips. They establish that the downloaded archives load offline, route
+language labels, decode with beam 4 and write complete predictions. The honest
+model-selection result remains the exact held-out package WER of 0.2116866.
+The local archive sizes and hashes match the Modal build receipts. Final merged
+weights and experiment outputs are also backed up to the private Hugging Face
+repository.
+
 ## Bugs found
 
 1. `eval_checkpoint.py` wrote beam width to the outer Qwen model's generation
@@ -138,8 +165,8 @@ inside zero and adds about 50% decode cost. The 60/40 two-model package is the
 deployment candidate because it has the lowest audited two-model WER without
 the third model's runtime and archive-size penalty.
 
-Further results are pending. A final fit trained on all labelled data must never be
-scored on this fold and described as held-out; those clips have been seen.
+The final-data artifacts above are complete. They must never be scored on this
+fold and described as held-out; those clips have been seen.
 
 ## Rules and validation
 
